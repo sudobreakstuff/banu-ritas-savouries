@@ -92,7 +92,6 @@
     activeFilter = id;
     $all(".filter-pill").forEach(function (p) { p.classList.toggle("active", p.dataset.filter === id); });
     $all(".menu-section").forEach(function (sec) { sec.classList.toggle("show", sec.dataset.cat === id || id === "all"); });
-    history.replaceState(null, "", id === "all" ? "#menu" : "#menu");
   }
 
   function groupItems(cat) {
@@ -189,10 +188,13 @@
     var canvas = $("#hero-canvas");
     if (!canvas) return;
     var ctx = canvas.getContext("2d");
-    var W, H, pts = [];
+    var W, H, dpr = 1, pts = [];
     function resize() {
-      W = canvas.width = canvas.offsetWidth;
-      H = canvas.height = canvas.offsetHeight;
+      dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(canvas.clientWidth * dpr);
+      canvas.height = Math.round(canvas.clientHeight * dpr);
+      W = canvas.clientWidth; H = canvas.clientHeight;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resize();
     window.addEventListener("resize", resize);
@@ -204,7 +206,9 @@
       });
     }
     (function draw() {
-      ctx.clearRect(0, 0, W, H);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       for (var i = 0; i < pts.length; i++) {
         var p = pts[i];
         p.y += p.vy; p.x += p.vx; p.tw += 0.03;
@@ -488,6 +492,8 @@
     /* deep-link to a category (e.g. #platters) */
     var hash = location.hash.replace("#", "");
     if (hash && B.categories.some(function (c) { return c.id === hash; })) setFilter(hash);
+    /* strip a stray hash without scrolling */
+    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
