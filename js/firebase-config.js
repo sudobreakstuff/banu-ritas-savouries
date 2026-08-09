@@ -49,11 +49,11 @@
    ============================================================ */
 
 window.FIREBASE_CONFIG = {
-  apiKey: "PASTE-YOUR-apiKey-HERE",
-  authDomain: "PASTE-YOUR-authDomain-HERE",
-  databaseURL: "PASTE-YOUR-databaseURL-HERE",
-  projectId: "PASTE-YOUR-projectId-HERE",
-  storageBucket: "PASTE-YOUR-storageBucket-HERE",
-  messagingSenderId: "PASTE-YOUR-messagingSenderId-HERE",
-  appId: "PASTE-YOUR-appId-HERE"
+  apiKey: "AIzaSyB3gp0CXLDqKUbxq1nml-_29I73rbcOGkk",
+  authDomain: "banu-ritas.firebaseapp.com",
+  databaseURL: "https://banu-ritas-default-rtdb.firebaseio.com",
+  projectId: "banu-ritas",
+  storageBucket: "banu-ritas.firebasestorage.app",
+  messagingSenderId: "218270106074",
+  appId: "1:218270106074:web:b31abee2cbbb513ed140e3"
 };
