@@ -15,7 +15,8 @@
 
   var DOCS = [];
   var currentTab = "dashboard";
-  var builder = null; // { type, rows }
+  var builder = null; // { type, rows, delivery }
+  var miImg = null, spImg = null; // pending uploads (data URLs)
 
   /* ------------------------------------------------------------
      HELPERS
@@ -78,6 +79,7 @@
     if (tab === "dashboard") renderDashboard();
     if (tab === "documents") renderDocList();
     if (tab === "stock") renderStock();
+    if (tab === "menu") renderMenuMgr();
     if (tab === "settings") renderSettings();
   }
 
@@ -200,6 +202,8 @@
       date: dateLabel(doc.date),
       customer: doc.customer || {},
       items: doc.items.map(function (it) { return { name: it.name, unit: it.unit, price: it.price, qty: it.qty }; }),
+      fryFee: doc.fryFee,
+      delivery: doc.delivery,
       discount: doc.discount,
       vatPercent: doc.vatPercent,
       notes: (doc.notes || "").split("\n").filter(Boolean),
@@ -236,7 +240,7 @@
      DOC BUILDER
      ------------------------------------------------------------ */
   function openBuilder(type) {
-    builder = { type: type, rows: [{ name: "", qty: 1, price: "" }] };
+    builder = { type: type, rows: [{ name: "", qty: 1, price: "" }], delivery: false };
     $("#doc-list-panel").style.display = "none";
     var b = $("#doc-builder");
     b.style.display = "block";
@@ -289,6 +293,8 @@
         "</div>" +
         '<div class="doc-totals">' +
           '<div class="dt-row"><span>Subtotal</span><b id="b-sub">' + fmt(totals.subtotal) + "</b></div>" +
+          '<div class="dt-row"><span>Frying fee</span><b id="b-fry">' + fmt(totals.fry) + "</b></div>" +
+          '<div class="dt-row"><span>Delivery (+' + fmt(B.fees.delivery || 0) + ")</span><input type=\"checkbox\" id=\"b-delivery\" " + (builder.delivery ? "checked" : "") + " style=\"width:18px;height:18px;accent-color:var(--marigold-deep)\"></div>" +
           '<div class="dt-row"><span>Discount (R)</span><input class="f-input" id="b-discount" type="number" min="0" value="0" style="width:110px;padding:6px 10px"></div>' +
           '<div class="dt-row"><span>VAT %</span><input class="f-input" id="b-vat" type="number" min="0" step="0.1" value="' + (biz.vatPercent || 0) + '" style="width:110px;padding:6px 10px"></div>' +
           '<div class="dt-row"><span>VAT amount</span><b id="b-vatamt">' + fmt(totals.vatAmount) + "</b></div>" +
@@ -325,6 +331,7 @@
       }
     });
     ["b-discount", "b-vat"].forEach(function (id) { $("#" + id).addEventListener("input", renderBuilderTotals); });
+    $("#b-delivery").addEventListener("change", function () { builder.delivery = this.checked; renderBuilderTotals(); });
   }
 
   function renderLines() {
@@ -339,10 +346,16 @@
           "</select>" +
           '<input class="f-input" type="number" min="1" value="' + row.qty + '" data-f="qty" data-i="' + i + '">' +
           '<input class="f-input" type="number" min="0" step="0.01" placeholder="R" value="' + (row.price == null ? "" : row.price) + '" data-f="price" data-i="' + i + '">' +
+          '<label class="f-fried" title="Tick if fried — the frying fee is added automatically"><input type="checkbox" data-f="fried" data-i="' + i + '" ' + (row.fried ? "checked" : "") + '> Fried</label>' +
           '<button class="icon-btn danger" data-f="rm" data-i="' + i + '" title="Remove line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>' +
         "</div>";
     });
     box.innerHTML = html;
+    /* restore selected item (fixes the "selection resets" bug) */
+    box.querySelectorAll('[data-f="item"]').forEach(function (sel) {
+      var i = +sel.dataset.i;
+      if (builder.rows[i] && builder.rows[i].itemId) sel.value = builder.rows[i].itemId;
+    });
     $all("[data-f]", box).forEach(function (el) {
       el.addEventListener("change", function () {
         var i = +el.dataset.i;
@@ -359,10 +372,10 @@
           } else {
             row.name = ""; row.itemId = null; row.price = ""; row.unit = "";
           }
-          renderLines();
         }
         if (f === "qty") row.qty = Math.max(1, parseInt(el.value, 10) || 1);
         if (f === "price") row.price = el.value;
+        if (f === "fried") row.fried = el.checked;
         renderBuilderTotals();
       });
       if (el.dataset.f === "rm") el.addEventListener("click", function () {
@@ -378,29 +391,44 @@
     return builder.rows.map(function (r, i) {
       var name = r.name || "Item " + (i + 1);
       var price = r.price === "" || r.price == null ? 0 : Number(r.price) || 0;
-      return { itemId: r.itemId || null, name: name, unit: r.unit || "item", price: price, qty: r.qty || 1 };
+      return { itemId: r.itemId || null, name: name, unit: r.unit || "item", price: price, qty: r.qty || 1, fried: !!r.fried };
     }).filter(function (r) { return (r.name && r.price) || r.itemId; });
   }
   function builderTotals() {
-    return docTotal(builderRows(), $("#b-discount") ? $("#b-discount").value : 0, $("#b-vat") ? $("#b-vat").value : biz.vatPercent);
+    var rows = builderRows();
+    var sub = rows.reduce(function (s, r) { return s + r.price * r.qty; }, 0);
+    var fry = rows.reduce(function (s, r) {
+      if (!r.fried || !r.itemId) return s;
+      var item = B.itemById(r.itemId);
+      return s + (item ? B.fryFee(item, r.qty) : 0);
+    }, 0);
+    var delivery = builder.delivery ? (B.fees.delivery || 0) : 0;
+    var disc = Number($("#b-discount") ? $("#b-discount").value : 0) || 0;
+    var vatPct = Number($("#b-vat") ? $("#b-vat").value : biz.vatPercent) || 0;
+    var vat = (sub + fry + delivery - disc) * vatPct / 100;
+    return { subtotal: sub, fry: fry, delivery: delivery, discount: disc, vatPercent: vatPct, vatAmount: vat, total: sub + fry + delivery - disc + vat };
   }
   function renderBuilderTotals() {
     var t = builderTotals();
-    var sub = $("#b-sub"), va = $("#b-vatamt"), tot = $("#b-total");
+    var sub = $("#b-sub"), fry = $("#b-fry"), va = $("#b-vatamt"), tot = $("#b-total");
     if (sub) sub.textContent = fmt(t.subtotal);
+    if (fry) fry.textContent = fmt(t.fry);
     if (va) va.textContent = fmt(t.vatAmount);
     if (tot) tot.textContent = fmt(t.total);
   }
 
   function builderToPdf() {
+    var t = builderTotals();
     var r = window.BRSPDF.makeInvoicePdf({
       docType: builder.type,
       number: $("#b-number").value,
       date: dateLabel($("#b-date").value || today()),
       customer: { name: $("#b-custname").value, phone: $("#b-custphone").value, addr: $("#b-custaddr").value },
       items: builderRows(),
-      discount: Number($("#b-discount").value) || 0,
-      vatPercent: Number($("#b-vat").value) || 0,
+      fryFee: t.fry,
+      delivery: t.delivery,
+      discount: t.discount,
+      vatPercent: t.vatPercent,
       notes: $("#b-notes").value.split("\n").filter(Boolean)
     });
     return r;
@@ -419,8 +447,10 @@
       date: $("#b-date").value || today(),
       customer: { name: custName, phone: $("#b-custphone").value.trim(), addr: $("#b-custaddr").value.trim() },
       items: rows,
-      discount: Number($("#b-discount").value) || 0,
-      vatPercent: Number($("#b-vat").value) || 0,
+      fryFee: t.fry,
+      delivery: t.delivery,
+      discount: t.discount,
+      vatPercent: t.vatPercent,
       subtotal: t.subtotal, vatAmount: t.vatAmount, total: t.total,
       notes: $("#b-notes").value.trim(),
       status: builder.type === "quote" ? "quote" : "unpaid",
@@ -524,6 +554,87 @@
   }
 
   /* ------------------------------------------------------------
+     MENU & PHOTOS
+     ------------------------------------------------------------ */
+  function renderMenuMgr() {
+    renderPhotoGrid();
+    renderSpecialsList();
+  }
+
+  function renderPhotoGrid() {
+    var grid = $("#photo-grid");
+    if (!grid) return;
+    var items = B.allItems();
+    grid.innerHTML = items.map(function (it) {
+      return (
+        '<label class="photo-item">' +
+          '<input type="file" accept="image/*" class="photo-file" data-id="' + esc(it.id) + '" style="display:none">' +
+          '<img src="' + esc(it._img) + '" alt="">' +
+          "<span>" + esc(it.name) + "</span>" +
+        "</label>"
+      );
+    }).join("");
+
+    $all(".photo-file", grid).forEach(function (input) {
+      input.addEventListener("change", function () {
+        var id = input.dataset.id;
+        var file = input.files && input.files[0];
+        if (!file) return;
+        fileToDataURL(file, function (dataUrl) {
+          B.uploads[id] = dataUrl;
+          B.saveUploads(B.uploads);
+          toast("Photo updated");
+          renderPhotoGrid();
+        });
+      });
+    });
+  }
+
+  function renderSpecialsList() {
+    var box = $("#specials-list");
+    if (!box) return;
+    var posted = B.loadJSON("brs_specials_v1", []);
+    if (!posted.length) { box.innerHTML = '<p style="color:var(--muted);font-size:13px">No specials posted yet.</p>'; return; }
+    box.innerHTML = posted.map(function (sp, i) {
+      return (
+        '<div class="special-item">' +
+          '<img src="' + esc(sp.img) + '" alt="">' +
+          '<div class="sp-info"><b>' + esc(sp.title) + "</b><span>" + esc(sp.caption || "") + "</span></div>" +
+          '<button class="icon-btn danger" data-sp="' + i + '" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>' +
+        "</div>"
+      );
+    }).join("");
+    $all("[data-sp]", box).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var list = B.loadJSON("brs_specials_v1", []);
+        list.splice(+btn.dataset.sp, 1);
+        B.saveSpecialsPosted(list);
+        toast("Special removed");
+        renderSpecialsList();
+      });
+    });
+  }
+
+  function fileToDataURL(file, cb) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var max = 1000, w = img.width, h = img.height;
+        if (w > max || h > max) {
+          var k = Math.min(max / w, max / h);
+          var c = document.createElement("canvas");
+          c.width = Math.round(w * k); c.height = Math.round(h * k);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          cb(c.toDataURL("image/jpeg", 0.85));
+        } else { cb(img.src); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* ------------------------------------------------------------
      SETTINGS
      ------------------------------------------------------------ */
   function renderSettings() {
@@ -559,7 +670,10 @@
       docs: DOCS,
       counters: counters(),
       stock: JSON.parse(localStorage.getItem("brs_stock_v1") || "{}"),
-      custom: JSON.parse(localStorage.getItem("brs_custom_items_v1") || "{}")
+      custom: JSON.parse(localStorage.getItem("brs_custom_items_v1") || "{}"),
+      customMenu: B.customMenu,
+      uploads: B.uploads,
+      specials: B.loadJSON("brs_specials_v1", [])
     };
     var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     var a = document.createElement("a");
@@ -580,8 +694,11 @@
         if (d.counters) store(LS_COUNTERS, d.counters);
         if (d.stock) localStorage.setItem("brs_stock_v1", JSON.stringify(d.stock));
         if (d.custom) localStorage.setItem("brs_custom_items_v1", JSON.stringify(d.custom));
+        if (d.customMenu) B.saveCustomMenu(d.customMenu);
+        if (d.uploads) B.saveUploads(d.uploads);
+        if (d.specials) B.saveSpecialsPosted(d.specials);
         applySettings();
-        renderDashboard(); renderDocList(); renderStock(); renderSettings();
+        renderDashboard(); renderDocList(); renderStock(); renderMenuMgr(); renderSettings();
         toast("Backup restored");
       } catch (e) { toast("That file isn't a valid backup"); }
     };
@@ -590,7 +707,7 @@
 
   function resetAll() {
     if (!confirmBox("Erase ALL data on this device? Download a backup first!")) return;
-    ["brs_docs_v1", "brs_counters_v1", "brs_owner_settings_v1", "brs_stock_v1", "brs_custom_items_v1"].forEach(function (k) { localStorage.removeItem(k); });
+    ["brs_docs_v1", "brs_counters_v1", "brs_owner_settings_v1", "brs_stock_v1", "brs_custom_items_v1", "brs_custom_menu_v1", "brs_uploads_v1", "brs_specials_v1"].forEach(function (k) { localStorage.removeItem(k); });
     location.reload();
   }
 
@@ -637,6 +754,61 @@
     });
 
     $("#set-save").addEventListener("click", saveSettings);
+
+    /* --- Menu & Photos tab --- */
+    $("#mi-img-btn").addEventListener("click", function () { $("#mi-img-file").click(); });
+    $("#mi-img-file").addEventListener("change", function () {
+      var f = this.files && this.files[0]; if (!f) return;
+      fileToDataURL(f, function (d) { var p = $("#mi-img-preview"); if (p) { p.src = d; p.classList.add("has"); } miImg = d; });
+    });
+    $("#sp-img-btn").addEventListener("click", function () { $("#sp-img-file").click(); });
+    $("#sp-img-file").addEventListener("change", function () {
+      var f = this.files && this.files[0]; if (!f) return;
+      fileToDataURL(f, function (d) { var p = $("#sp-img-preview"); if (p) { p.src = d; p.classList.add("has"); } spImg = d; });
+    });
+
+    $("#mi-add").addEventListener("click", function () {
+      var name = $("#mi-name").value.trim();
+      if (!name) { toast("Enter an item name"); $("#mi-name").focus(); return; }
+      var price = $("#mi-price").value;
+      if (price === "") { toast("Enter a price"); $("#mi-price").focus(); return; }
+      var custom = {
+        id: "cust_" + Date.now(),
+        name: name,
+        catId: $("#mi-cat").value,
+        group: $("#mi-group").value.trim() || "Custom items",
+        price: Number(price),
+        unit: $("#mi-unit").value.trim() || "item",
+        veg: $("#mi-veg").checked,
+        desc: "",
+        img: miImg || "assets/images/hero.jpg"
+      };
+      B.customMenu.push(custom);
+      B.saveCustomMenu(B.customMenu);
+      ["mi-name", "mi-price", "mi-unit", "mi-group"].forEach(function (id) { var el = $("#" + id); if (el) el.value = ""; });
+      $("#mi-veg").checked = true;
+      miImg = null;
+      var p = $("#mi-img-preview"); if (p) { p.src = ""; p.classList.remove("has"); }
+      $("#mi-img-file").value = "";
+      renderPhotoGrid();
+      toast(name + " added to the menu");
+    });
+
+    $("#sp-add").addEventListener("click", function () {
+      var title = $("#sp-title").value.trim();
+      var img = spImg;
+      if (!title || !img) { toast("Add a title and a photo"); return; }
+      var list = B.loadJSON("brs_specials_v1", []);
+      list.push({ id: "sp_" + Date.now(), title: title, caption: $("#sp-caption").value.trim(), img: img });
+      B.saveSpecialsPosted(list);
+      $("#sp-title").value = ""; $("#sp-caption").value = "";
+      spImg = null;
+      var p = $("#sp-img-preview"); if (p) { p.src = ""; p.classList.remove("has"); }
+      $("#sp-img-file").value = "";
+      renderSpecialsList();
+      toast("Special posted");
+    });
+
     $("#set-export").addEventListener("click", fullBackup);
     $("#set-import").addEventListener("click", function () { $("#set-import-file").click(); });
     $("#set-import-file").addEventListener("change", function () { if (this.files[0]) restoreBackup(this.files[0]); this.value = ""; });

@@ -7,11 +7,12 @@
   var B = window.BRS;
   var biz = B.business;
 
-  var MARIGOLD = [233, 161, 59];
-  var TERRACOTTA = [194, 86, 46];
-  var INK = [59, 42, 30];
-  var MUTED = [138, 115, 92];
-  var CREAM = [251, 245, 234];
+  var MARIGOLD = [16, 17, 20];      // near-black
+  var GOLD = [243, 234, 213];
+  var RED = [169, 46, 38];
+  var INK = [28, 28, 31];
+  var MUTED = [110, 106, 100];
+  var CREAM = [247, 243, 234];
 
   function docOrErr(onError) {
     if (window.jspdf && window.jspdf.jsPDF) return new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
@@ -33,14 +34,14 @@
     /* brand band */
     doc.setFillColor(MARIGOLD[0], MARIGOLD[1], MARIGOLD[2]);
     doc.rect(0, 0, W, 30, "F");
-    doc.setFillColor(TERRACOTTA[0], TERRACOTTA[1], TERRACOTTA[2]);
+    doc.setFillColor(RED[0], RED[1], RED[2]);
     doc.rect(0, 30, W, 2.4, "F");
 
-    doc.setFillColor(INK[0], INK[1], INK[2]);
+    doc.setFillColor(RED[0], RED[1], RED[2]);
     doc.circle(14, 15, 7, "F");
     doc.setFillColor(255, 255, 255);
     doc.circle(14, 15, 5.4, "F");
-    doc.setFillColor(INK[0], INK[1], INK[2]);
+    doc.setFillColor(RED[0], RED[1], RED[2]);
     doc.circle(14, 15, 2.6, "F");
 
     doc.setTextColor(255, 255, 255);
@@ -49,22 +50,25 @@
     doc.text(biz.name, 24, 14.5);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
+    doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
     doc.text(biz.addressShort, 24, 20);
     doc.text(biz.phone + "  |  " + biz.phone2, 24, 25);
 
     /* doc type + number, right side */
+    doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.text(meta.title, W - M, 14.5, { align: "right" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
+    doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
     doc.text("No. " + meta.number, W - M, 20, { align: "right" });
     doc.text("Date: " + meta.date, W - M, 25, { align: "right" });
   }
 
   function drawFooter(doc) {
     var W = 210, H = 297;
-    doc.setDrawColor(217, 130, 43);
+    doc.setDrawColor(RED[0], RED[1], RED[2]);
     doc.setLineWidth(0.4);
     doc.line(16, H - 22, W - 16, H - 22);
     doc.setFont("helvetica", "normal");
@@ -77,7 +81,7 @@
   function drawBillTo(doc, y, customer) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.setTextColor(TERRACOTTA[0], TERRACOTTA[1], TERRACOTTA[2]);
+    doc.setTextColor(RED[0], RED[1], RED[2]);
     doc.text("BILL TO", 16, y);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
@@ -146,7 +150,7 @@
 
     function row(label, value, bold) {
       if (bold) { doc.setFont("helvetica", "bold"); doc.setFontSize(11); } else { doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); }
-      doc.setTextColor(bold ? TERRACOTTA[0] : MUTED[0], bold ? TERRACOTTA[1] : MUTED[1], bold ? TERRACOTTA[2] : MUTED[2]);
+      doc.setTextColor(bold ? RED[0] : MUTED[0], bold ? RED[1] : MUTED[1], bold ? RED[2] : MUTED[2]);
       doc.text(label, x, y, { align: "right" });
       doc.setTextColor(INK[0], INK[1], INK[2]);
       doc.text(value, x + col, y, { align: "right" });
@@ -155,9 +159,11 @@
     }
 
     if (opts.subtotal != null) y = row("Subtotal", fmtMoney(opts.subtotal));
+    if (opts.fryFee) y = row("Frying fee", fmtMoney(opts.fryFee));
+    if (opts.delivery) y = row("Delivery", fmtMoney(opts.delivery));
     if (opts.discount) y = row("Discount", "− " + fmtMoney(opts.discount));
     if (opts.vatPercent) y = row("VAT (" + opts.vatPercent + "%)", fmtMoney(opts.vatAmount));
-    doc.setDrawColor(217, 130, 43);
+    doc.setDrawColor(RED[0], RED[1], RED[2]);
     doc.setLineWidth(0.4);
     doc.line(x, y - 2, x + col, y - 2);
     y = row("TOTAL " + (opts.title || "").toUpperCase(), fmtMoney(total), true);
@@ -173,7 +179,7 @@
     doc.fill();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.setTextColor(TERRACOTTA[0], TERRACOTTA[1], TERRACOTTA[2]);
+    doc.setTextColor(RED[0], RED[1], RED[2]);
     doc.text("NOTES / TERMS", 22, y + 6);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -196,6 +202,11 @@
 
     var customer = opts.customer || {};
     var items = opts.items || [];
+    var subtotal = items.reduce(function (s, r) { return s + (r.item.price || 0) * r.qty; }, 0);
+    var fryFee = Number(opts.fryFee) || 0;
+    var delivery = Number(opts.delivery) || 0;
+    var total = subtotal + fryFee + delivery;
+
     var d = new Date();
     var date = d.toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" });
 
@@ -205,9 +216,9 @@
     y = drawBillTo(doc, y, customer);
     y += 2;
     y = drawItems(doc, y, items.map(function (r) {
-      return { name: r.item.name, unit: r.item.unit, price: r.item.price, qty: r.qty };
+      return { name: r.item.name + (r.fried ? " (Fried)" : ""), unit: r.item.unit, price: r.item.price, qty: r.qty };
     }));
-    y = drawTotals(doc, y, opts.total, { subtotal: opts.total, title: "Order" });
+    y = drawTotals(doc, y, total, { subtotal: subtotal, fryFee: fryFee, delivery: delivery, title: "Order" });
     drawNotes(doc, y, [
       biz.notes,
       "Please confirm availability and collection/delivery time via WhatsApp."
@@ -233,10 +244,12 @@
 
     var items = opts.items || [];
     var subtotal = items.reduce(function (s, it) { return s + (it.price || 0) * (it.qty || 1); }, 0);
+    var fryFee = Number(opts.fryFee) || 0;
+    var delivery = Number(opts.delivery) || 0;
     var discount = Number(opts.discount) || 0;
     var vatPct = Number(opts.vatPercent != null ? opts.vatPercent : biz.vatPercent) || 0;
-    var vatAmount = (subtotal - discount) * vatPct / 100;
-    var total = subtotal - discount + vatAmount;
+    var vatAmount = (subtotal + fryFee + delivery - discount) * vatPct / 100;
+    var total = subtotal + fryFee + delivery - discount + vatAmount;
 
     drawHeader(doc, {
       title: isQuote ? "QUOTATION" : "TAX INVOICE",
@@ -250,6 +263,8 @@
     y = drawItems(doc, y, items);
     y = drawTotals(doc, y, total, {
       subtotal: subtotal,
+      fryFee: fryFee,
+      delivery: delivery,
       discount: discount,
       vatPercent: vatPct,
       vatAmount: vatAmount,
@@ -263,7 +278,7 @@
     drawNotes(doc, y, notes);
     drawFooter(doc);
 
-    return { doc: doc, total: total, subtotal: subtotal, vatAmount: vatAmount, discount: discount };
+    return { doc: doc, total: total, subtotal: subtotal, vatAmount: vatAmount, discount: discount, fryFee: fryFee, delivery: delivery };
   }
 
   window.BRSPDF = { makeOrderPdf: makeOrderPdf, makeInvoicePdf: makeInvoicePdf, fmtMoney: fmtMoney };

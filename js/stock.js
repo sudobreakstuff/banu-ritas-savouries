@@ -54,6 +54,14 @@
         unit: custom[id].unit || "", price: null, isMenu: false, stock: custom[id].stock
       });
     });
+    B.customMenu.forEach(function (c) {
+      var cat = B.categoryById(c.catId);
+      out.push({
+        id: c.id, name: c.name, group: c.group || "Custom items",
+        category: cat ? cat.name : "Custom items", veg: c.veg !== false,
+        unit: c.unit || "item", price: c.price, isMenu: true, stock: getStock(c.id)
+      });
+    });
     return out;
   }
 

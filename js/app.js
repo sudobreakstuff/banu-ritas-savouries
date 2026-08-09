@@ -44,10 +44,16 @@
   /* ------------------------------------------------------------
      CART STATE (localStorage)
      ------------------------------------------------------------ */
-  var cart = {};   // id -> qty
+  var cart = {};   // id -> { q: qty, f: fried }
   var LS_CART = "brs_cart_v1";
   var LS_CUST = "brs_cust_v1";
 
+  function entry(id) {
+    var v = cart[id];
+    if (v == null) return null;
+    if (typeof v === "number") return { q: v, f: false };
+    return { q: v.q || 0, f: !!v.f };
+  }
   function save() { localStorage.setItem(LS_CART, JSON.stringify(cart)); }
   function load() {
     try { cart = JSON.parse(localStorage.getItem(LS_CART)) || {}; } catch (e) { cart = {}; }
@@ -55,16 +61,34 @@
   function cartList() {
     return Object.keys(cart).map(function (id) {
       var item = B.itemById(id);
-      return { id: id, item: item, qty: cart[id] };
-    }).filter(function (r) { return r.item; });
+      var e = entry(id);
+      return { id: id, item: item, qty: e.q, fried: e.f };
+    }).filter(function (r) { return r.item && r.qty > 0; });
   }
   function cartCount() { return cartList().reduce(function (s, r) { return s + r.qty; }, 0); }
-  function cartTotal() {
+  function cartSubtotal() {
     return cartList().reduce(function (s, r) { return s + (r.item.price || 0) * r.qty; }, 0);
   }
+  function fryTotal() {
+    return cartList().reduce(function (s, r) { return s + (r.fried ? B.fryFee(r.item, r.qty) : 0); }, 0);
+  }
+  function isDelivery() { var el = $("#c-type-delivery"); return !!el && el.classList.contains("active"); }
+  function deliveryTotal() { return isDelivery() ? (B.fees.delivery || 0) : 0; }
+  function cartTotal() { return cartSubtotal() + fryTotal() + deliveryTotal(); }
 
   function setQty(id, qty) {
-    if (qty <= 0) delete cart[id]; else cart[id] = qty;
+    if (qty <= 0) { delete cart[id]; }
+    else {
+      var e = entry(id) || { q: 0, f: false };
+      cart[id] = { q: qty, f: e.f };
+    }
+    save();
+    renderCart();
+    syncCards();
+  }
+  function setFried(id, fried) {
+    if (!cart[id]) return;
+    cart[id] = { q: entry(id).q, f: !!fried };
     save();
     renderCart();
     syncCards();
@@ -125,8 +149,18 @@
     );
   }
 
+  function friedControl(item, fried, small) {
+    if (!B.isFryable(item)) return "";
+    var fee = B.fryFee(item, 1);
+    return '<div class="fried-toggle' + (small ? " sm" : "") + '">' +
+      '<button class="f-tog' + (!fried ? " on" : "") + '" data-fried="0" type="button">Frozen</button>' +
+      '<button class="f-tog' + (fried ? " on" : "") + '" data-fried="1" type="button">Fried <em>+' + fmt(fee) + '</em></button>' +
+    "</div>";
+  }
+
   function renderFoot(item, footEl) {
-    var qty = cart[item.id] || 0;
+    var qty = cart[item.id] ? entry(item.id).q : 0;
+    var fried = cart[item.id] ? entry(item.id).f : false;
     if (item.price == null) {
       footEl.innerHTML =
         '<a class="btn btn-ghost btn-sm request-btn" href="' + waLink(biz.orderWhatsApp, "Hi Banu Rita, how much is the " + item.name + "?") + '" target="_blank" rel="noopener">' +
@@ -141,6 +175,7 @@
           '<span class="qty">' + qty + "</span>" +
           '<button data-action="inc" aria-label="Increase">' + ICONS.plus + "</button>" +
         "</div>" +
+        friedControl(item, fried) +
         '<button class="add-btn added" data-action="inc" type="button">' + ICONS.bag + " Added</button>";
     } else {
       footEl.innerHTML = '<button class="add-btn" data-action="inc" type="button">' + ICONS.bag + " Add to order</button>";
@@ -149,8 +184,9 @@
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
         var act = btn.dataset.action;
-        if (act === "inc") setQty(item.id, (cart[item.id] || 0) + 1);
-        if (act === "dec") setQty(item.id, (cart[item.id] || 0) - 1);
+        if (act === "inc") setQty(item.id, (entry(item.id) ? entry(item.id).q : 0) + 1);
+        if (act === "dec") setQty(item.id, (entry(item.id) ? entry(item.id).q : 0) - 1);
+        if (btn.dataset.fried != null) setFried(item.id, btn.dataset.fried === "1");
       });
     });
   }
@@ -173,12 +209,42 @@
       if (cat.blurb) html += '<p class="section-lead" style="margin-bottom:26px">' + esc(cat.blurb) + "</p>";
       var groups = groupItems(cat);
       Object.keys(groups).forEach(function (g) {
+        html += '<div class="group-head">' + esc(g) + "</div>";
         html += '<div class="menu-grid">' + groups[g].map(cardHTML).join("") + "</div>";
       });
       html += "</div>";
     });
+    var custom = ALL.filter(function (i) { return i._custom; });
+    if (custom.length) {
+      html += '<div class="menu-section" data-cat="custom">';
+      html += '<div class="menu-section-head"><span class="paisley small"></span><h3>Custom items</h3><span class="paisley line"></span></div>';
+      html += '<div class="group-head">From Banu\'s kitchen</div>';
+      html += '<div class="menu-grid">' + custom.map(cardHTML).join("") + "</div>";
+      html += "</div>";
+    }
     root.innerHTML = html;
     syncCards();
+  }
+
+  /* ------------------------------------------------------------
+     RENDER: SPECIALS (ads)
+     ------------------------------------------------------------ */
+  function renderSpecials() {
+    var root = $("#specials-root");
+    if (!root) return;
+    var list = B.specialsList();
+    if (!list.length) { root.innerHTML = ""; return; }
+    root.innerHTML = list.map(function (ad) {
+      return (
+        '<article class="special-card">' +
+          '<img src="' + esc(ad.img) + '" alt="' + esc(ad.title) + '" loading="lazy">' +
+          '<div class="special-overlay">' +
+            "<h3>" + esc(ad.title) + "</h3>" +
+            (ad.caption ? "<p>" + esc(ad.caption) + "</p>" : "") +
+          "</div>" +
+        "</article>"
+      );
+    }).join("");
   }
 
   /* ------------------------------------------------------------
@@ -291,10 +357,8 @@
     var count = cartCount();
 
     $all(".cart-count").forEach(function (el) { el.textContent = count; el.classList.toggle("on", count > 0); });
-    $("#cart-bar-total").textContent = fmt(cartTotal());
     $("#cart-bar").classList.toggle("show", count > 0);
     document.body.classList.toggle("has-cart-bar", count > 0);
-    $("#cart-total").textContent = fmt(cartTotal());
 
     if (!list.length) {
       body.innerHTML =
@@ -303,24 +367,27 @@
           "<h4>Your basket is empty</h4>" +
           "<p>Add a few savouries or a platter to get started.</p>" +
         "</div>";
+      refreshTotals();
       return;
     }
 
     var html = "";
     list.forEach(function (r) {
+      var lineTotal = (r.item.price || 0) * r.qty + (r.fried ? B.fryFee(r.item, r.qty) : 0);
       html +=
-        '<div class="cart-item">' +
+        '<div class="cart-item" data-id="' + esc(r.id) + '">' +
           '<img class="ci-img" src="' + esc(r.item._img) + '" alt="">' +
           '<div class="ci-info">' +
-            '<div class="ci-name">' + esc(r.item.name) + "</div>" +
+            '<div class="ci-name">' + esc(r.item.name) + (r.fried ? ' <span class="ci-fried">Fried</span>' : "") + "</div>" +
             '<div class="ci-unit">' + esc(r.item.unit) + (r.item.price != null ? " &middot; " + fmt(r.item.price) : "") + "</div>" +
+            friedControl(r.item, r.fried, true) +
           "</div>" +
           '<div class="stepper small">' +
             '<button data-id="' + esc(r.id) + '" data-act="dec">' + ICONS.minus + "</button>" +
             '<span class="qty">' + r.qty + "</span>" +
             '<button data-id="' + esc(r.id) + '" data-act="inc">' + ICONS.plus + "</button>" +
           "</div>" +
-          '<span class="ci-price">' + (r.item.price != null ? fmt(r.item.price * r.qty) : "&mdash;") + "</span>" +
+          '<span class="ci-price">' + (r.item.price != null ? fmt(lineTotal) : "&mdash;") + "</span>" +
           '<button class="ci-x" data-id="' + esc(r.id) + '" data-act="rm" aria-label="Remove">' + ICONS.x + "</button>" +
         "</div>";
     });
@@ -330,11 +397,17 @@
         '<div><label class="f-label">Phone</label><input class="f-input" id="c-phone" placeholder="071 000 0000" inputmode="tel" autocomplete="tel"></div>' +
         '<div class="radio-row">' +
           '<button type="button" class="radio-pill active" id="c-type-collection">Collection</button>' +
-          '<button type="button" class="radio-pill" id="c-type-delivery">Delivery</button>' +
+          '<button type="button" class="radio-pill" id="c-type-delivery">Delivery <em>+' + fmt(B.fees.delivery || 0) + "</em></button>" +
         "</div>" +
         '<div id="addr-wrap"><label class="f-label">Delivery address</label><textarea class="f-textarea" id="c-addr" placeholder="Street, suburb, area"></textarea></div>' +
         '<div><label class="f-label">Collect / deliver when?</label><input class="f-input" id="c-when" placeholder="e.g. Saturday afternoon, before 3pm"></div>' +
-        '<div><label class="f-label">Notes (optional)</label><textarea class="f-textarea" id="c-notes" placeholder="Frozen or fried? Allergies? Anything else?"></textarea></div>' +
+        '<div><label class="f-label">Notes (optional)</label><textarea class="f-textarea" id="c-notes" placeholder="Anything else? Allergies?"></textarea></div>' +
+        '<div class="cart-totals">' +
+          '<div class="ct-row"><span>Subtotal</span><b id="ct-sub">' + fmt(cartSubtotal()) + "</b></div>" +
+          '<div class="ct-row" id="ct-fry-row"><span>Frying fee</span><b id="ct-fry">' + fmt(fryTotal()) + "</b></div>" +
+          '<div class="ct-row" id="ct-del-row"><span>Delivery</span><b id="ct-del">' + fmt(deliveryTotal()) + "</b></div>" +
+          '<div class="ct-row grand"><span>Total</span><b id="ct-total">' + fmt(cartTotal()) + "</b></div>" +
+        "</div>" +
       "</div>";
 
     body.innerHTML = html;
@@ -342,9 +415,17 @@
     $all("[data-act]", body).forEach(function (btn) {
       btn.addEventListener("click", function () {
         var id = btn.dataset.id;
-        if (btn.dataset.act === "inc") setQty(id, (cart[id] || 0) + 1);
-        if (btn.dataset.act === "dec") setQty(id, (cart[id] || 0) - 1);
+        if (btn.dataset.act === "inc") setQty(id, (entry(id) ? entry(id).q : 0) + 1);
+        if (btn.dataset.act === "dec") setQty(id, (entry(id) ? entry(id).q : 0) - 1);
         if (btn.dataset.act === "rm") setQty(id, 0);
+      });
+    });
+
+    $all("[data-fried]", body).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var itemEl = btn.closest(".cart-item");
+        if (!itemEl || !itemEl.dataset.id) return;
+        setFried(itemEl.dataset.id, btn.dataset.fried === "1");
       });
     });
 
@@ -353,6 +434,7 @@
         $all(".radio-pill").forEach(function (x) { x.classList.remove("active"); });
         p.classList.add("active");
         $("#addr-wrap").classList.toggle("show", p.id === "c-type-delivery");
+        refreshTotals();
       });
     });
 
@@ -371,6 +453,17 @@
       $("#c-type-collection").classList.remove("active");
       $("#addr-wrap").classList.add("show");
     }
+    refreshTotals();
+  }
+
+  function refreshTotals() {
+    var sub = $("#ct-sub"), fry = $("#ct-fry"), del = $("#ct-del"), tot = $("#ct-total");
+    if (sub) sub.textContent = fmt(cartSubtotal());
+    if (fry) { fry.textContent = fmt(fryTotal()); var frow = $("#ct-fry-row"); if (frow) frow.style.display = fryTotal() ? "" : "none"; }
+    if (del) { del.textContent = fmt(deliveryTotal()); var drow = $("#ct-del-row"); if (drow) drow.style.display = deliveryTotal() ? "" : "none"; }
+    if (tot) tot.textContent = fmt(cartTotal());
+    var stat = $("#cart-total"); if (stat) stat.textContent = fmt(cartTotal());
+    var bar = $("#cart-bar-total"); if (bar) bar.textContent = fmt(cartTotal());
   }
 
   /* ------------------------------------------------------------
@@ -390,9 +483,16 @@
     lines.push("");
     lines.push("-----------------------");
     cartList().forEach(function (r) {
-      var priceTxt = r.item.price != null ? " @ " + fmt(r.item.price) + " = " + fmt(r.item.price * r.qty) : "";
-      lines.push(r.qty + "x " + r.item.name + " (" + r.item.unit + ")" + priceTxt);
+      var line = r.qty + "x " + r.item.name + " (" + r.item.unit + ")" + (r.fried ? " — FRIED" : "");
+      if (r.item.price != null) {
+        var amt = r.item.price * r.qty + (r.fried ? B.fryFee(r.item, r.qty) : 0);
+        line += " = " + fmt(amt);
+      }
+      lines.push(line);
     });
+    var fry = fryTotal(), del = deliveryTotal();
+    if (fry) lines.push("Frying fee (+" + fmt(B.fees.fry) + "/dozen): " + fmt(fry));
+    if (del) lines.push("Delivery fee: " + fmt(del));
     lines.push("-----------------------");
     lines.push("*TOTAL: " + fmt(cartTotal()) + "*");
     lines.push("");
@@ -437,6 +537,9 @@
         title: "Order Summary",
         customer: c,
         items: cartList(),
+        subtotal: cartSubtotal(),
+        fryFee: fryTotal(),
+        delivery: deliveryTotal(),
         total: cartTotal()
       }, function () { toast("Preparing your PDF…"); }, function (err) {
         toast(err || "Could not create PDF — try WhatsApp instead");
@@ -449,7 +552,7 @@
     });
 
     /* scroll nav + active link */
-    var sections = ["menu", "how", "story", "visit"];
+    var sections = ["specials", "menu", "how", "story", "visit"];
     window.addEventListener("scroll", function () {
       $("#nav").classList.toggle("scrolled", window.scrollY > 20);
       var pos = window.scrollY + 140;
@@ -497,6 +600,7 @@
      ------------------------------------------------------------ */
   function init() {
     load();
+    renderSpecials();
     buildFilterBar();
     renderMenu();
     setFilter(activeFilter);

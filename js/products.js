@@ -64,6 +64,72 @@ BRS.disclaimers = [
 ];
 
 /* ------------------------------------------------------------
+   FEES — automatic extras applied in the cart
+   ------------------------------------------------------------ */
+BRS.fees = {
+  fry: 10,        // R per dozen to fry savouries
+  delivery: 20    // R per delivery
+};
+
+/* Savouries that are already sold fried don't attract a frying fee. */
+BRS.NO_FRY_FEE = { vedas: 1, bhajias: 1, "puri-patha": 1 };
+
+BRS.isFryable = function (item) {
+  return !!(item && item.categoryId === "savouries" && !BRS.NO_FRY_FEE[item.id]);
+};
+
+/* How many "dozens" a unit represents — scales the R10-per-dozen fry fee. */
+BRS.unitDozens = function (unit) {
+  var u = String(unit || "");
+  if (u.indexOf("per platter") !== -1) return 5;
+  if (u.indexOf("2 dozen") !== -1) return 2;
+  if (u.indexOf("half dozen") !== -1) return 0.5;
+  return 1;
+};
+
+BRS.fryFee = function (item, qty) {
+  if (!BRS.isFryable(item)) return 0;
+  return BRS.fees.fry * (qty || 1) * BRS.unitDozens(item.unit);
+};
+
+/* ------------------------------------------------------------
+   SPECIALS — adverts Banu posts from the Owner Hub
+   ------------------------------------------------------------ */
+BRS.specialsBuiltin = [
+  { id: "ad-1", title: "Festive Season Orders", caption: "Book your platters and sweetmeats early for the festive season.", img: "assets/images/specials/ad-1.jpeg" },
+  { id: "ad-2", title: "Fresh For Every Occasion", caption: "Samoosas, pies and sweets made to order — collection or delivery.", img: "assets/images/specials/ad-2.jpeg" },
+  { id: "ad-3", title: "One Message Away", caption: "WhatsApp us your order. Frying fresh made easy.", img: "assets/images/specials/ad-3.jpeg" }
+];
+
+BRS.loadJSON = function (key, def) { try { return JSON.parse(localStorage.getItem(key)) || def; } catch (e) { return def; } };
+
+BRS.specialsList = function () {
+  return BRS.specialsBuiltin.concat(BRS.loadJSON("brs_specials_v1", []));
+};
+BRS.saveSpecialsPosted = function (list) { localStorage.setItem("brs_specials_v1", JSON.stringify(list)); };
+
+/* ------------------------------------------------------------
+   OWNER-DRIVEN DATA — custom menu items & image overrides.
+   Stored in this browser (Owner Hub) so Banu can manage the
+   menu and swap product photos without touching code.
+   ------------------------------------------------------------ */
+BRS.customMenu = [];
+BRS.uploads = {};
+
+BRS.loadLocalOverrides = function () {
+  BRS.customMenu = BRS.loadJSON("brs_custom_menu_v1", []);
+  BRS.uploads = BRS.loadJSON("brs_uploads_v1", {});
+};
+BRS.saveCustomMenu = function (list) {
+  BRS.customMenu = list || [];
+  localStorage.setItem("brs_custom_menu_v1", JSON.stringify(BRS.customMenu));
+};
+BRS.saveUploads = function (up) {
+  BRS.uploads = up || {};
+  localStorage.setItem("brs_uploads_v1", JSON.stringify(BRS.uploads));
+};
+
+/* ------------------------------------------------------------
    MENU
    ------------------------------------------------------------
    Each category has an id, a short name, a longer description,
@@ -201,12 +267,37 @@ BRS.allItems = function () {
       item.categoryId = cat.id;
       item.category = cat.name;
       item._img = "assets/images/" + (item.img || cat.img || "hero.jpg");
+      if (BRS.uploads[item.id]) item._img = BRS.uploads[item.id];
       out.push(item);
+    });
+  });
+  BRS.customMenu.forEach(function (c) {
+    var cat = BRS.categoryById(c.catId);
+    out.push({
+      id: c.id, name: c.name, group: c.group || "Custom items",
+      categoryId: cat ? cat.id : "custom",
+      category: cat ? cat.name : "Custom items",
+      price: c.price == null || c.price === "" ? null : Number(c.price),
+      unit: c.unit || "item",
+      veg: c.veg !== false,
+      desc: c.desc,
+      img: c.img,
+      _custom: true,
+      _img: BRS.uploads[c.id] || c.img || "assets/images/hero.jpg"
     });
   });
   return out;
 };
 
+BRS.categoryById = function (id) {
+  var found = null;
+  BRS.categories.forEach(function (c) { if (c.id === id) found = c; });
+  return found;
+};
+
 BRS.itemById = function (id) {
   return BRS.allItems().find(function (i) { return i.id === id; }) || null;
 };
+
+/* Load owner-driven data at startup */
+try { BRS.loadLocalOverrides(); } catch (e) { /* no-op */ }

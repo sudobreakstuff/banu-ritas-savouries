@@ -44,6 +44,7 @@
         <button data-tab="dashboard" class="active">Dashboard</button>
         <button data-tab="documents">Invoices &amp; Quotes</button>
         <button data-tab="stock">Stock</button>
+        <button data-tab="menu">Menu &amp; Photos</button>
         <button data-tab="settings">Settings</button>
       </div>
       <button class="btn btn-ghost btn-sm" id="logout-btn" type="button" style="flex:none">Lock</button>
@@ -124,6 +125,67 @@
           </div>
           <button class="btn btn-dark" id="cust-add" type="button">Add item</button>
         </div>
+      </div>
+    </section>
+
+    <!-- MENU & PHOTOS -->
+    <section class="hub-tab" id="tab-menu">
+      <div class="hub-tab-head">
+        <div>
+          <span class="kicker">Menu &amp; photos</span>
+          <h2 class="section-title" style="font-size:clamp(24px,3vw,32px)">Products &amp; specials</h2>
+        </div>
+      </div>
+
+      <div class="hub-panel">
+        <h3>Add an item to the menu</h3>
+        <p class="hp-sub">Give it a name, price and a photo. It appears on the website under "Custom items" (saved on this device — share your backup to go live).</p>
+        <div class="doc-builder" style="grid-template-columns:1fr 1fr;gap:12px">
+          <input class="f-input" id="mi-name" placeholder="Item name, e.g. Chicken Lollipops">
+          <select class="f-input" id="mi-cat">
+            <option value="savouries">Savouries</option>
+            <option value="platters">Platters</option>
+            <option value="sweetmeats">Sweetmeats</option>
+            <option value="pantry">Pickles &amp; Honeys</option>
+          </select>
+          <input class="f-input" id="mi-price" type="number" min="0" step="0.5" placeholder="Price (R)">
+          <input class="f-input" id="mi-unit" placeholder="Unit, e.g. per dozen">
+          <input class="f-input" id="mi-group" placeholder="Group, e.g. Fried Favourites">
+          <div class="veg-wrap"><label><input type="checkbox" id="mi-veg" checked> Vegetarian</label></div>
+          <div class="img-pick" style="grid-column:1/-1">
+            <img id="mi-img-preview" alt="">
+            <div>
+              <input type="file" id="mi-img-file" accept="image/*" style="display:none">
+              <button class="btn btn-ghost btn-sm" id="mi-img-btn" type="button">Choose photo</button>
+              <span class="img-pick-hint">Optional — uses a default photo if left empty.</span>
+            </div>
+          </div>
+          <button class="btn btn-gold" id="mi-add" type="button" style="grid-column:1/-1">Add to menu</button>
+        </div>
+      </div>
+
+      <div class="hub-panel">
+        <h3>Product photos</h3>
+        <p class="hp-sub">Tap a photo to replace it. Works for every product, existing or custom. New photos are used across the website (saved on this device).</p>
+        <div class="photo-grid" id="photo-grid"></div>
+      </div>
+
+      <div class="hub-panel">
+        <h3>Specials / adverts</h3>
+        <p class="hp-sub">Post the specials you share on WhatsApp — they show on the website's Specials section (saved on this device).</p>
+        <div class="special-form">
+          <input class="f-input" id="sp-title" placeholder="Title, e.g. Christmas specials">
+          <input class="f-input" id="sp-caption" placeholder="Caption, e.g. Order by 15 December">
+          <div class="img-pick">
+            <img id="sp-img-preview" alt="">
+            <div>
+              <input type="file" id="sp-img-file" accept="image/*" style="display:none">
+              <button class="btn btn-ghost btn-sm" id="sp-img-btn" type="button">Choose ad photo</button>
+            </div>
+          </div>
+          <button class="btn btn-gold" id="sp-add" type="button">Post special</button>
+        </div>
+        <div class="specials-list" id="specials-list"></div>
       </div>
     </section>
 
