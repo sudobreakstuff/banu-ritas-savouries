@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Owner Hub — Banu Rita's Savouries</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="%23b02e24"/><circle cx="32" cy="32" r="25" fill="none" stroke="%23101215" stroke-width="2.5" stroke-dasharray="6 4"/><text x="32" y="42" font-family="Georgia,serif" font-size="26" font-weight="bold" text-anchor="middle" fill="%23101215">B</text></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css?v=13">
+</head>
+<body class="hub">
+
+<!-- ================= LOGIN GATE ================= -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <a class="brand" href="../">
+      <span class="brand-mark"><span>B</span></span>
+      <span class="brand-name"><b style="color:#f7ecda">Banu Rita's Savouries</b><small>Owner Hub</small></span>
+    </a>
+    <span class="paisley"></span>
+    <h1>Welcome back</h1>
+    <p>Manage invoices, quotes and stock — all in one place.</p>
+    <form class="gate-form" id="gate-form">
+      <input class="f-input" type="password" id="gate-pass" placeholder="Passcode" autocomplete="current-password">
+      <button class="btn btn-gold btn-block" type="submit">Unlock the Hub</button>
+      <div class="gate-err" id="gate-err"></div>
+    </form>
+    <p style="margin-top:14px;font-size:11px;opacity:.6">Hint: the passcode is set in js/products.js (business.ownerPasscode).</p>
+  </div>
+</div>
+
+<!-- ================= HUB ================= -->
+<div id="hub" class="hub-shell" style="display:none">
+  <nav class="hub-nav">
+    <div class="container hub-nav-inner">
+      <a class="brand" href="../" style="text-decoration:none">
+        <span class="brand-mark"><span>B</span></span>
+        <span class="brand-name"><b>Banu Rita's Savouries</b><small>Owner Hub</small></span>
+      </a>
+      <div class="hub-tabs" id="hub-tabs">
+        <button data-tab="dashboard" class="active">Dashboard</button>
+        <button data-tab="documents">Invoices &amp; Quotes</button>
+        <button data-tab="stock">Stock</button>
+        <button data-tab="menu">Menu &amp; Photos</button>
+        <button data-tab="settings">Settings</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="logout-btn" type="button" style="flex:none">Lock</button>
+    </div>
+  </nav>
+
+  <main class="container">
+    <!-- DASHBOARD -->
+    <section class="hub-tab show" id="tab-dashboard">
+      <div class="hub-tab-head">
+        <div>
+          <span class="kicker">Dashboard</span>
+          <h2 class="section-title" style="font-size:clamp(24px,3vw,32px)">How's business today?</h2>
+        </div>
+        <div class="doc-actions">
+          <button class="btn btn-gold btn-sm" data-news doc type="button" id="dash-new-invoice">New invoice</button>
+          <button class="btn btn-ghost btn-sm" id="dash-new-quote" type="button">New quote</button>
+        </div>
+      </div>
+      <div class="stat-grid" id="dash-stats"></div>
+      <div class="hub-panel">
+        <h3>Recent documents</h3>
+        <p class="hp-sub">Your latest invoices and quotes.</p>
+        <div id="dash-recent"></div>
+      </div>
+    </section>
+
+    <!-- DOCUMENTS -->
+    <section class="hub-tab" id="tab-documents">
+      <div class="hub-tab-head">
+        <div>
+          <span class="kicker">Documents</span>
+          <h2 class="section-title" style="font-size:clamp(24px,3vw,32px)">Invoices &amp; quotes</h2>
+        </div>
+        <div class="doc-actions">
+          <button class="btn btn-gold btn-sm" id="doc-new-invoice" type="button">New invoice</button>
+          <button class="btn btn-ghost btn-sm" id="doc-new-quote" type="button">New quote</button>
+        </div>
+      </div>
+      <div id="doc-builder" style="display:none"></div>
+      <div class="hub-panel" id="doc-list-panel">
+        <h3>Saved documents</h3>
+        <p class="hp-sub">Search, resend or mark documents as paid.</p>
+        <input class="f-input" id="doc-search" placeholder="Search by customer or number…" style="margin-bottom:14px;max-width:360px">
+        <div class="hub-table-wrap"><table class="hub-table" id="doc-table"></table></div>
+      </div>
+    </section>
+
+    <!-- STOCK -->
+    <section class="hub-tab" id="tab-stock">
+      <div class="hub-tab-head">
+        <div>
+          <span class="kicker">Stock</span>
+          <h2 class="section-title" style="font-size:clamp(24px,3vw,32px)">Stock on hand</h2>
+        </div>
+        <div class="doc-actions">
+          <button class="btn btn-ghost btn-sm" id="stock-print" type="button">Print sheet</button>
+          <button class="btn btn-ghost btn-sm" id="stock-backup" type="button">Backup</button>
+          <button class="btn btn-ghost btn-sm" id="stock-restore" type="button">Restore</button>
+          <input type="file" id="stock-restore-file" accept=".json" style="display:none">
+        </div>
+      </div>
+      <div class="stat-grid" id="stock-stats"></div>
+      <div class="hub-panel">
+        <h3>Live stock</h3>
+        <p class="hp-sub">Use + / − to adjust. Items at or below their minimum light up red.</p>
+        <div class="hub-table-wrap"><table class="hub-table" id="stock-table"></table></div>
+      </div>
+      <div class="hub-panel">
+        <h3>Add a custom item</h3>
+        <p class="hp-sub">For ingredients or anything you track that isn't on the menu (e.g. pastry, oil, packaging).</p>
+        <div class="doc-builder" style="grid-template-columns:1fr 1fr;gap:10px">
+          <input class="f-input" id="cust-name" placeholder="Item name, e.g. 25kg flour">
+          <input class="f-input" id="cust-unit" placeholder="Unit, e.g. bag">
+          <div class="f-row" style="display:flex;gap:10px">
+            <input class="f-input" id="cust-qty" type="number" min="0" placeholder="On hand">
+            <input class="f-input" id="cust-min" type="number" min="0" placeholder="Min alert">
+          </div>
+          <button class="btn btn-dark" id="cust-add" type="button">Add item</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- MENU & PHOTOS -->
+    <section class="hub-tab" id="tab-menu">
+      <div class="hub-tab-head">
+        <div>
+          <span class="kicker">Menu &amp; photos</span>
+          <h2 class="section-title" style="font-size:clamp(24px,3vw,32px)">Products &amp; specials</h2>
+        </div>
+      </div>
+
+      <div class="hub-panel">
+        <h3>Add an item to the menu</h3>
+        <p class="hp-sub">Give it a name, price and a photo. It appears on the website under "Custom items" (saved on this device — share your backup to go live).</p>
+        <div class="doc-builder" style="grid-template-columns:1fr 1fr;gap:12px">
+          <input class="f-input" id="mi-name" placeholder="Item name, e.g. Chicken Lollipops">
+          <select class="f-input" id="mi-cat">
+            <option value="savouries">Savouries</option>
+            <option value="platters">Platters</option>
+            <option value="sweetmeats">Sweetmeats</option>
+            <option value="pantry">Pickles &amp; Honeys</option>
+          </select>
+          <input class="f-input" id="mi-price" type="number" min="0" step="0.5" placeholder="Price (R)">
+          <input class="f-input" id="mi-unit" placeholder="Unit, e.g. per dozen">
+          <input class="f-input" id="mi-group" placeholder="Group, e.g. Fried Favourites">
+          <div class="veg-wrap"><label><input type="checkbox" id="mi-veg" checked> Vegetarian</label></div>
+          <div class="img-pick" style="grid-column:1/-1">
+            <img id="mi-img-preview" alt="">
+            <div>
+              <input type="file" id="mi-img-file" accept="image/*" style="display:none">
+              <button class="btn btn-ghost btn-sm" id="mi-img-btn" type="button">Choose photo</button>
+              <span class="img-pick-hint">Optional — uses a default photo if left empty.</span>
+            </div>
+          </div>
+          <button class="btn btn-gold" id="mi-add" type="button" style="grid-column:1/-1">Add to menu</button>
+        </div>
+      </div>
+
+      <div class="hub-panel">
+        <h3>Product photos</h3>
+        <p class="hp-sub">Tap a photo to replace it. Works for every product, existing or custom. New photos are used across the website (saved on this device).</p>
+        <div class="photo-grid" id="photo-grid"></div>
+      </div>
+
+      <div class="hub-panel">
+        <h3>Specials / adverts</h3>
+        <p class="hp-sub">Post the specials you share on WhatsApp — they show on the website's Specials section (saved on this device).</p>
+        <div class="special-form">
+          <input class="f-input" id="sp-title" placeholder="Title, e.g. Christmas specials">
+          <input class="f-input" id="sp-caption" placeholder="Caption, e.g. Order by 15 December">
+          <div class="img-pick">
+            <img id="sp-img-preview" alt="">
+            <div>
+              <input type="file" id="sp-img-file" accept="image/*" style="display:none">
+              <button class="btn btn-ghost btn-sm" id="sp-img-btn" type="button">Choose ad photo</button>
+            </div>
+          </div>
+          <button class="btn btn-gold" id="sp-add" type="button">Post special</button>
+        </div>
+        <div class="specials-list" id="specials-list"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="hub-tab" id="tab-settings">
+      <div class="hub-tab-head">
+        <div>
+          <span class="kicker">Settings</span>
+          <h2 class="section-title" style="font-size:clamp(24px,3vw,32px)">Business details</h2>
+        </div>
+      </div>
+      <div class="hub-panel">
+        <h3>Cloud sync</h3>
+        <p class="hp-sub">Photos, custom items and specials are shared with every device when connected.</p>
+        <div class="cloud-pill" id="cloud-status">Cloud sync: …</div>
+      </div>
+      <div class="hub-panel">
+        <h3>Business information</h3>
+        <p class="hp-sub">These override the values in js/products.js for this device.</p>
+        <div class="doc-builder" style="grid-template-columns:1fr 1fr;gap:12px">
+          <input class="f-input" id="set-name" placeholder="Business name">
+          <input class="f-input" id="set-phone" placeholder="Phone (display)">
+          <input class="f-input" id="set-phone2" placeholder="Second phone (display)">
+          <input class="f-input" id="set-wa" placeholder="WhatsApp order number (intl, e.g. 27847739558)">
+          <input class="f-input" id="set-address" placeholder="Address" style="grid-column:1/-1">
+          <input class="f-input" id="set-social" placeholder="Instagram handle">
+          <input class="f-input" id="set-vat" type="number" min="0" step="0.1" placeholder="VAT %">
+          <input class="f-input" id="set-pass" placeholder="New Owner Hub passcode">
+        </div>
+        <div class="doc-actions" style="margin-top:16px">
+          <button class="btn btn-gold" id="set-save" type="button">Save settings</button>
+        </div>
+      </div>
+      <div class="hub-panel">
+        <h3>Backup &amp; restore</h3>
+        <p class="hp-sub">Your data lives in this browser. Download a backup regularly and keep it safe.</p>
+        <div class="doc-actions">
+          <button class="btn btn-dark" id="set-export" type="button">Download full backup</button>
+          <button class="btn btn-ghost" id="set-import" type="button">Restore from file</button>
+          <input type="file" id="set-import-file" accept=".json" style="display:none">
+        </div>
+      </div>
+      <div class="hub-panel" style="border-color:rgba(179,64,42,.4)">
+        <h3 style="color:var(--chilli)">Danger zone</h3>
+        <p class="hp-sub">Erases all invoices, quotes, stock and custom items on this device. Download a backup first.</p>
+        <button class="btn btn-ghost" id="set-reset" type="button" style="border-color:var(--chilli);color:var(--chilli)">Reset everything</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" role="status"></div>
+<div id="print-area"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/cloud.js"></script>
+    <script src="../js/products.js?v=13"></script>
+<script src="../js/pdf.js?v=13"></script>
+<script src="../js/stock.js?v=13"></script>
+<script src="../js/owner.js?v=13"></script>
+</body>
+</html>
