@@ -171,10 +171,6 @@
     doc.setDrawColor(RED[0], RED[1], RED[2]);
     doc.setLineWidth(0.4);
     doc.line(x, y - 2, x + col, y - 2);
-    /* highlight the grand total */
-    doc.setFillColor(238, 239, 241);
-    doc.roundedRect(x - 6, y - 4.2, col + 6, 8.8, 2.5, 2.5);
-    doc.fill();
     y = row("TOTAL " + (opts.title || "").toUpperCase(), fmtMoney(total), true);
     return y;
   }
