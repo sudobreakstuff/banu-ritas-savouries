@@ -100,22 +100,23 @@
     return groups;
   }
 
-  function menuRowHTML(item) {
+  function cardHTML(item) {
     var priceHTML = item.price == null
       ? "<b>On request</b>"
       : "<b>" + fmt(item.price) + "</b>" + (item.unit ? "<small>" + esc(item.unit) + "</small>" : "");
     return (
-      '<div class="m-row" data-id="' + esc(item.id) + '">' +
-        '<div class="m-row-main">' +
-          '<span class="veg-dot ' + (item.veg ? "veg" : "nonveg") + '" title="' + (item.veg ? "Vegetarian" : "Contains meat") + '"></span>' +
-          '<div class="m-row-text">' +
-            '<div class="m-row-name">' + esc(item.name) + "</div>" +
-            (item.desc ? '<div class="m-row-desc">' + esc(item.desc) + "</div>" : "") +
+      '<div class="m-card" data-id="' + esc(item.id) + '">' +
+        '<div class="m-card-top"></div>' +
+        '<div class="m-card-body">' +
+          '<div class="m-card-head">' +
+            '<span class="veg-dot ' + (item.veg ? "veg" : "nonveg") + '" title="' + (item.veg ? "Vegetarian" : "Contains meat") + '"></span>' +
+            '<h4 class="m-card-name">' + esc(item.name) + "</h4>" +
           "</div>" +
-        "</div>" +
-        '<div class="m-row-right">' +
-          '<div class="m-row-price">' + priceHTML + "</div>" +
-          '<div class="m-row-ctrl" data-foot></div>' +
+          '<p class="m-card-desc">' + (item.desc ? esc(item.desc) : "") + "</p>" +
+          '<div class="m-card-foot">' +
+            '<div class="m-card-price">' + priceHTML + "</div>" +
+            '<div class="m-card-ctrl" data-foot></div>' +
+          "</div>" +
         "</div>" +
       "</div>"
     );
@@ -151,10 +152,10 @@
   }
 
   function syncCards() {
-    $all(".m-row").forEach(function (row) {
-      var footEl = $("[data-foot]", row);
+    $all(".m-card").forEach(function (card) {
+      var footEl = $("[data-foot]", card);
       if (!footEl) return;
-      var item = B.itemById(row.dataset.id);
+      var item = B.itemById(card.dataset.id);
       if (item) renderFoot(item, footEl);
     });
   }
@@ -169,8 +170,8 @@
       var groups = groupItems(cat);
       Object.keys(groups).forEach(function (g) {
         html +=
-          '<div class="m-panel"><div class="m-panel-head"><h4>' + esc(g) + "</h4></div><div class=\"m-panel-body\">" +
-            groups[g].map(menuRowHTML).join("") +
+          '<div class="m-panel"><div class="m-panel-head"><h4>' + esc(g) + "</h4></div><div class=\"m-grid\">" +
+            groups[g].map(cardHTML).join("") +
           "</div></div>";
       });
       html += "</div>";
@@ -379,6 +380,18 @@
     $("#nav-burger").addEventListener("click", function () { $("#nav-links").classList.toggle("open"); });
     $all("#nav-links a").forEach(function (a) {
       a.addEventListener("click", function () { $("#nav-links").classList.remove("open"); });
+    });
+
+    /* nav links that target a category (e.g. #platters) filter the menu + scroll */
+    $all("#nav-links a[href^='#']").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        var target = a.getAttribute("href").slice(1);
+        if (target && B.categories.some(function (c) { return c.id === target; })) {
+          e.preventDefault();
+          setFilter(target);
+          window.scrollTo({ top: $("#menu").offsetTop - 70, behavior: "smooth" });
+        }
+      });
     });
 
     /* scroll nav + active link */
