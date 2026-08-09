@@ -8,11 +8,11 @@
   var biz = B.business;
 
   var MARIGOLD = [16, 17, 20];      // near-black
-  var GOLD = [243, 234, 213];
-  var RED = [169, 46, 38];
+  var WHITE = [255, 255, 255];
+  var LIGHT = [205, 209, 215];      // cool light gray for header subtext
+  var RED = [176, 46, 36];
   var INK = [28, 28, 31];
-  var MUTED = [110, 106, 100];
-  var CREAM = [247, 243, 234];
+  var MUTED = [120, 124, 130];      // neutral gray
 
   function docOrErr(onError) {
     if (window.jspdf && window.jspdf.jsPDF) return new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
@@ -37,37 +37,34 @@
     doc.setFillColor(RED[0], RED[1], RED[2]);
     doc.rect(0, 30, W, 2.4, "F");
 
-    /* monogram logo — red disc with white "B" (brand mark) */
+    /* brand mark — solid red disc with white "B" */
     doc.setFillColor(RED[0], RED[1], RED[2]);
-    doc.circle(14, 15, 7.5, "F");
-    doc.setFillColor(GOLD[0], GOLD[1], GOLD[2]);
-    doc.circle(14, 15, 6.2, "F");
-    doc.setFillColor(RED[0], RED[1], RED[2]);
-    doc.circle(14, 15, 5.1, "F");
-    doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.text("BANU", 14, 12.4, { align: "center" });
-    doc.text("RITA'S", 14, 16.6, { align: "center" });
-
-    doc.setTextColor(255, 255, 255);
+    doc.circle(14, 15, 7.6, "F");
+    doc.setDrawColor(WHITE[0], WHITE[1], WHITE[2]);
+    doc.setLineWidth(0.6);
+    doc.circle(14, 15, 6.7, "S");
+    doc.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
-    doc.text(biz.name, 26, 14.5);
+    doc.text("B", 14, 17.1, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text(biz.name, 27, 14.5);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
-    doc.text(biz.addressShort, 26, 20);
-    doc.text(biz.phone + "  |  " + biz.phone2, 26, 25);
+    doc.setTextColor(LIGHT[0], LIGHT[1], LIGHT[2]);
+    doc.text(biz.addressShort, 27, 20);
+    doc.text(biz.phone + "  |  " + biz.phone2, 27, 25);
 
     /* doc type + number, right side */
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.text(meta.title, W - M, 14.5, { align: "right" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
+    doc.setTextColor(LIGHT[0], LIGHT[1], LIGHT[2]);
     doc.text("No. " + meta.number, W - M, 20, { align: "right" });
     doc.text("Date: " + meta.date, W - M, 25, { align: "right" });
   }
@@ -114,7 +111,7 @@
     doc.fill();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
+    doc.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
     doc.text("QTY", colQty, y + 6);
     doc.text("ITEM", colItem, y + 6);
     doc.text("UNIT", colUnitR, y + 6, { align: "right" });
@@ -175,7 +172,7 @@
     doc.setLineWidth(0.4);
     doc.line(x, y - 2, x + col, y - 2);
     /* highlight the grand total */
-    doc.setFillColor(249, 236, 235);
+    doc.setFillColor(238, 239, 241);
     doc.roundedRect(x - 6, y - 4.2, col + 6, 8.8, 2.5, 2.5);
     doc.fill();
     y = row("TOTAL " + (opts.title || "").toUpperCase(), fmtMoney(total), true);
