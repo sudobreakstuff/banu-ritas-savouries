@@ -7,7 +7,6 @@
 
   var B = window.BRS;
   var biz = B.business;
-  var ALL = B.allItems();
 
   /* ------------------------------------------------------------
      HELPERS
@@ -214,7 +213,7 @@
       });
       html += "</div>";
     });
-    var custom = ALL.filter(function (i) { return i._custom; });
+    var custom = B.allItems().filter(function (i) { return i._custom; });
     if (custom.length) {
       html += '<div class="menu-section" data-cat="custom">';
       html += '<div class="menu-section-head"><span class="paisley small"></span><h3>Custom items</h3><span class="paisley line"></span></div>';
@@ -316,10 +315,11 @@
   }
 
   function initCounters() {
-    var samFlav = ALL.filter(function (i) { return i.group === "Samoosas"; }).length;
-    var platters = ALL.filter(function (i) { return i.categoryId === "platters"; }).length;
-    var pickles = ALL.filter(function (i) { return i.group === "Pickles" || i.group === "Chutneys"; }).length;
-    setCount("m-items", ALL.length);
+    var items = B.allItems();
+    var samFlav = items.filter(function (i) { return i.group === "Samoosas"; }).length;
+    var platters = items.filter(function (i) { return i.categoryId === "platters"; }).length;
+    var pickles = items.filter(function (i) { return i.group === "Pickles" || i.group === "Chutneys"; }).length;
+    setCount("m-items", items.length);
     setCount("m-samflav", samFlav);
     setCount("m-platters", platters);
     setCount("m-pickles", pickles);
@@ -635,6 +635,16 @@
     initCounters();
     initEvents();
     fillContact();
+    /* live cloud sync — re-render when Banu updates photos / menu / specials */
+    if (window.CLOUD && CLOUD.enabled) {
+      CLOUD.onChange(function (data) {
+        if (typeof B.applyCloud === "function") B.applyCloud(data);
+        renderSpecials();
+        buildFilterBar();
+        renderMenu();
+        setFilter(activeFilter);
+      });
+    }
     /* deep-link to a category (e.g. #platters) */
     var hash = location.hash.replace("#", "");
     if (hash && B.categories.some(function (c) { return c.id === hash; })) setFilter(hash);

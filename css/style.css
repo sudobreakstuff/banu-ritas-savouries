@@ -719,6 +719,14 @@ table.hub-table { width: 100%; border-collapse: collapse; font-size: 14px; min-w
 .hub-table tr:last-child td { border-bottom: none; }
 .hub-table tr:hover td { background: rgba(176,50,39,.06); }
 .hub-table .num { font-variant-numeric: tabular-nums; }
+.cloud-pill {
+  display: inline-block; padding: 8px 16px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border-2);
+  color: var(--ink-2); font-size: 13px; font-weight: 700;
+}
+.cloud-pill.on { background: rgba(176, 46, 36, .08); border-color: rgba(176, 46, 36, .35); color: var(--chilli); }
+.cloud-pill.on::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--chilli); margin-right: 8px; }
+
 .badge { display: inline-block; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 11.5px; font-weight: 800; letter-spacing: .4px; }
 .badge.unpaid { background: rgba(179,64,42,.12); color: var(--chilli); }
 .badge.paid { background: rgba(94,125,58,.14); color: var(--leaf); }

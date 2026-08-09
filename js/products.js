@@ -103,15 +103,22 @@ BRS.specialsBuiltin = [
 
 BRS.loadJSON = function (key, def) { try { return JSON.parse(localStorage.getItem(key)) || def; } catch (e) { return def; } };
 
+/* Posted specials live in memory + localStorage + (when configured) the cloud. */
+BRS.specialsPosted = BRS.loadJSON("brs_specials_v1", []);
+
 BRS.specialsList = function () {
-  return BRS.specialsBuiltin.concat(BRS.loadJSON("brs_specials_v1", []));
+  return BRS.specialsBuiltin.concat(BRS.specialsPosted);
 };
-BRS.saveSpecialsPosted = function (list) { localStorage.setItem("brs_specials_v1", JSON.stringify(list)); };
+BRS.saveSpecialsPosted = function (list) {
+  BRS.specialsPosted = list || [];
+  localStorage.setItem("brs_specials_v1", JSON.stringify(BRS.specialsPosted));
+  BRS.syncCloud();
+};
 
 /* ------------------------------------------------------------
    OWNER-DRIVEN DATA — custom menu items & image overrides.
-   Stored in this browser (Owner Hub) so Banu can manage the
-   menu and swap product photos without touching code.
+   Stored in this browser AND mirrored to the shared cloud when
+   Firebase is configured, so every device sees the same edits.
    ------------------------------------------------------------ */
 BRS.customMenu = [];
 BRS.uploads = {};
@@ -119,14 +126,47 @@ BRS.uploads = {};
 BRS.loadLocalOverrides = function () {
   BRS.customMenu = BRS.loadJSON("brs_custom_menu_v1", []);
   BRS.uploads = BRS.loadJSON("brs_uploads_v1", {});
+  BRS.specialsPosted = BRS.loadJSON("brs_specials_v1", []);
 };
 BRS.saveCustomMenu = function (list) {
   BRS.customMenu = list || [];
   localStorage.setItem("brs_custom_menu_v1", JSON.stringify(BRS.customMenu));
+  BRS.syncCloud();
 };
 BRS.saveUploads = function (up) {
   BRS.uploads = up || {};
   localStorage.setItem("brs_uploads_v1", JSON.stringify(BRS.uploads));
+  BRS.syncCloud();
+};
+
+/* Push the owner-driven slices to the cloud (no-op when offline). */
+BRS.syncCloud = function () {
+  if (window.CLOUD && CLOUD.enabled) {
+    CLOUD.push({ uploads: BRS.uploads || {}, customMenu: BRS.customMenu || [], specials: BRS.specialsPosted || [] });
+  }
+};
+
+/* Called on startup when the cloud is empty — adopt this device's data. */
+BRS.pushLocalToCloud = function () {
+  BRS.syncCloud();
+};
+
+/* Fire this hook after cloud data is applied (set by app/owner to re-render). */
+BRS.onDataChange = null;
+
+/* Merge a cloud snapshot into memory + localStorage, then notify the UI. */
+BRS.applyCloud = function (data) {
+  if (!data) return;
+  var changed = false;
+  function set(key, ls, val) {
+    BRS[key] = val;
+    changed = true;
+    try { localStorage.setItem(ls, JSON.stringify(val)); } catch (e) {}
+  }
+  if (data.uploads && typeof data.uploads === "object") set("uploads", "brs_uploads_v1", data.uploads);
+  if (Array.isArray(data.customMenu)) set("customMenu", "brs_custom_menu_v1", data.customMenu);
+  if (Array.isArray(data.specials)) set("specialsPosted", "brs_specials_v1", data.specials);
+  if (changed && BRS.onDataChange) { try { BRS.onDataChange(); } catch (e) {} }
 };
 
 /* ------------------------------------------------------------

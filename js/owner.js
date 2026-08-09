@@ -581,10 +581,13 @@
         var file = input.files && input.files[0];
         if (!file) return;
         fileToDataURL(file, function (dataUrl) {
-          B.uploads[id] = dataUrl;
-          B.saveUploads(B.uploads);
-          toast("Photo updated");
-          renderPhotoGrid();
+          toast("Uploading photo…");
+          uploadImage(dataUrl, "p-" + id + "-" + Date.now() + ".jpg").then(function (url) {
+            B.uploads[id] = url;
+            B.saveUploads(B.uploads);
+            toast("Photo updated");
+            renderPhotoGrid();
+          });
         });
       });
     });
@@ -593,7 +596,7 @@
   function renderSpecialsList() {
     var box = $("#specials-list");
     if (!box) return;
-    var posted = B.loadJSON("brs_specials_v1", []);
+    var posted = B.specialsPosted;
     if (!posted.length) { box.innerHTML = '<p style="color:var(--muted);font-size:13px">No specials posted yet.</p>'; return; }
     box.innerHTML = posted.map(function (sp, i) {
       return (
@@ -606,7 +609,7 @@
     }).join("");
     $all("[data-sp]", box).forEach(function (btn) {
       btn.addEventListener("click", function () {
-        var list = B.loadJSON("brs_specials_v1", []);
+        var list = B.specialsPosted.slice();
         list.splice(+btn.dataset.sp, 1);
         B.saveSpecialsPosted(list);
         toast("Special removed");
@@ -632,6 +635,15 @@
       img.src = reader.result;
     };
     reader.readAsDataURL(file);
+  }
+
+  /* Store the image in Firebase Storage when cloud sync is on (fast CDN
+     URL shared by everyone); otherwise keep the local data-URL. */
+  function uploadImage(dataUrl, name) {
+    if (window.CLOUD && CLOUD.enabled) {
+      return CLOUD.upload(dataUrl, name).catch(function () { return dataUrl; });
+    }
+    return Promise.resolve(dataUrl);
   }
 
   /* ------------------------------------------------------------
@@ -772,8 +784,9 @@
       if (!name) { toast("Enter an item name"); $("#mi-name").focus(); return; }
       var price = $("#mi-price").value;
       if (price === "") { toast("Enter a price"); $("#mi-price").focus(); return; }
+      var id = "cust_" + Date.now();
       var custom = {
-        id: "cust_" + Date.now(),
+        id: id,
         name: name,
         catId: $("#mi-cat").value,
         group: $("#mi-group").value.trim() || "Custom items",
@@ -781,32 +794,49 @@
         unit: $("#mi-unit").value.trim() || "item",
         veg: $("#mi-veg").checked,
         desc: "",
-        img: miImg || "assets/images/hero.jpg"
+        img: "assets/images/hero.jpg"
       };
-      B.customMenu.push(custom);
-      B.saveCustomMenu(B.customMenu);
-      ["mi-name", "mi-price", "mi-unit", "mi-group"].forEach(function (id) { var el = $("#" + id); if (el) el.value = ""; });
-      $("#mi-veg").checked = true;
-      miImg = null;
-      var p = $("#mi-img-preview"); if (p) { p.src = ""; p.classList.remove("has"); }
-      $("#mi-img-file").value = "";
-      renderPhotoGrid();
-      toast(name + " added to the menu");
+      function save() {
+        B.customMenu.push(custom);
+        B.saveCustomMenu(B.customMenu);
+        ["mi-name", "mi-price", "mi-unit", "mi-group"].forEach(function (fid) { var el = $("#" + fid); if (el) el.value = ""; });
+        $("#mi-veg").checked = true;
+        miImg = null;
+        var p = $("#mi-img-preview"); if (p) { p.src = ""; p.classList.remove("has"); }
+        $("#mi-img-file").value = "";
+        renderPhotoGrid();
+        toast(name + " added to the menu");
+      }
+      if (miImg) {
+        uploadImage(miImg, "c-" + id + ".jpg").then(function (url) { custom.img = url; save(); });
+      } else {
+        save();
+      }
     });
 
     $("#sp-add").addEventListener("click", function () {
       var title = $("#sp-title").value.trim();
       var img = spImg;
       if (!title || !img) { toast("Add a title and a photo"); return; }
-      var list = B.loadJSON("brs_specials_v1", []);
-      list.push({ id: "sp_" + Date.now(), title: title, caption: $("#sp-caption").value.trim(), img: img });
-      B.saveSpecialsPosted(list);
-      $("#sp-title").value = ""; $("#sp-caption").value = "";
-      spImg = null;
-      var p = $("#sp-img-preview"); if (p) { p.src = ""; p.classList.remove("has"); }
-      $("#sp-img-file").value = "";
-      renderSpecialsList();
-      toast("Special posted");
+      var sp = { id: "sp_" + Date.now(), title: title, caption: $("#sp-caption").value.trim(), img: img };
+      var finish = function (url) {
+        sp.img = url;
+        var list = B.specialsPosted.slice();
+        list.push(sp);
+        B.saveSpecialsPosted(list);
+        $("#sp-title").value = ""; $("#sp-caption").value = "";
+        spImg = null;
+        var p = $("#sp-img-preview"); if (p) { p.src = ""; p.classList.remove("has"); }
+        $("#sp-img-file").value = "";
+        renderSpecialsList();
+        toast("Special posted");
+      };
+      if (window.CLOUD && CLOUD.enabled) {
+        toast("Uploading photo…");
+        uploadImage(img, "sp-" + Date.now() + ".jpg").then(finish);
+      } else {
+        finish(img);
+      }
     });
 
     $("#set-export").addEventListener("click", fullBackup);
@@ -819,6 +849,29 @@
     loadDocs();
     bindStatic();
     switchTab("dashboard");
+    initCloudSync();
+  }
+
+  /* ------------------------------------------------------------
+     CLOUD SYNC — keep every owner device + the live site in sync.
+     ------------------------------------------------------------ */
+  function initCloudSync() {
+    var pill = $("#cloud-status");
+    function show() {
+      if (!pill) return;
+      var s = window.CLOUD;
+      var live = s && s.enabled;
+      pill.classList.toggle("on", live);
+      pill.textContent = live ? "Cloud sync: connected" : "Cloud sync: off (local only)";
+    }
+    show();
+    if (!window.CLOUD || !CLOUD.enabled) return;
+    CLOUD.onChange(function (data) {
+      B.applyCloud(data);
+      if (currentTab === "menu") renderMenuMgr();
+      if (currentTab === "settings") renderSettings();
+      show();
+    });
   }
 
   applySettings();
