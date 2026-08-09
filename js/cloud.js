@@ -25,7 +25,7 @@
 
   function configured(c) {
     if (!c) return false;
-    return ["apiKey", "authDomain", "databaseURL", "projectId", "storageBucket"].every(function (k) {
+    return ["apiKey", "authDomain", "databaseURL", "projectId"].every(function (k) {
       var v = String(c[k] || "");
       return v && v.indexOf("PASTE-YOUR") === -1;
     });
@@ -33,19 +33,9 @@
 
   if (!configured(cfg) || !window.firebase) return;
 
-  function dataUrlToBlob(d) {
-    var parts = d.split(",");
-    var mime = (parts[0].match(/^data:(.*?);/) || [])[1] || "image/jpeg";
-    var bin = atob(parts[1]);
-    var arr = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-    return new Blob([arr], { type: mime });
-  }
-
   try {
     window.firebase.initializeApp(cfg);
     var db = window.firebase.database();
-    var storage = window.firebase.storage();
     var ref = db.ref("site/data");
 
     CLOUD.enabled = true;
@@ -78,16 +68,11 @@
       try { ref.update(updates || {}); } catch (e) { CLOUD.status = "error"; CLOUD.error = e.message; }
     };
 
-    /* Upload an image (File, Blob or data-URL string) and resolve to a CDN URL */
-    CLOUD.upload = function (data, name) {
-      return new Promise(function (resolve, reject) {
-        var blob = typeof data === "string" ? dataUrlToBlob(data) : data;
-        var path = "content/" + (name || "img-" + Date.now() + ".jpg");
-        storage.ref(path).put(blob).then(function (snap) {
-          return snap.ref.getDownloadURL();
-        }).then(resolve).catch(function (e) { reject(e); });
-      });
-    };
+    /* Images are stored in the database itself (free tier — no Blaze
+       upgrade needed). "Uploading" just passes the data-URL through;
+       it gets saved to the shared DB by saveUploads/saveCustomMenu/
+       saveSpecialsPosted. */
+    CLOUD.upload = function (dataUrl) { return Promise.resolve(dataUrl); };
 
     /* Wipe the shared content (photos, custom items, specials) */
     CLOUD.resetContent = function () {

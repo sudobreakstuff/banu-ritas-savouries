@@ -32,12 +32,13 @@
       Console → Build → Realtime Database → "Create database".
       Choose a location near you, then start in TEST MODE.
       Copy the `databaseURL` line into the config below.
+      (Your console shows:  https://banu-ritas-default-rtdb.firebaseio.com )
 
-   4. Turn on Storage:
-      Console → Build → Storage → "Get started" → TEST MODE.
-      Copy the `storageBucket` line into the config below.
+      That's it — no other service needed. Images are stored inside
+      the Realtime Database itself, so it all works on the FREE plan
+      (no credit card, no upgrade to the paid plan).
 
-   5. Paste your values below, then run the 3 lines:
+   4. Paste your values below, then run the 3 lines:
         git add .
         git commit -m "Enable cloud sync"
         git push origin main

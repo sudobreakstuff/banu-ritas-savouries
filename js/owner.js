@@ -623,13 +623,13 @@
     reader.onload = function () {
       var img = new Image();
       img.onload = function () {
-        var max = 1000, w = img.width, h = img.height;
+        var max = 900, w = img.width, h = img.height;
         if (w > max || h > max) {
           var k = Math.min(max / w, max / h);
           var c = document.createElement("canvas");
           c.width = Math.round(w * k); c.height = Math.round(h * k);
           c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-          cb(c.toDataURL("image/jpeg", 0.85));
+          cb(c.toDataURL("image/jpeg", 0.8));
         } else { cb(img.src); }
       };
       img.src = reader.result;
