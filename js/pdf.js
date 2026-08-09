@@ -168,9 +168,6 @@
     if (opts.delivery) y = row("Delivery", fmtMoney(opts.delivery));
     if (opts.discount) y = row("Discount", "− " + fmtMoney(opts.discount));
     if (opts.vatPercent) y = row("VAT (" + opts.vatPercent + "%)", fmtMoney(opts.vatAmount));
-    doc.setDrawColor(RED[0], RED[1], RED[2]);
-    doc.setLineWidth(0.4);
-    doc.line(x, y - 2, x + col, y - 2);
     y = row("TOTAL " + (opts.title || "").toUpperCase(), fmtMoney(total), true);
     return y;
   }
