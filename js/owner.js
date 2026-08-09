@@ -860,11 +860,18 @@
     function show() {
       if (!pill) return;
       var s = window.CLOUD;
-      var live = s && s.enabled;
-      pill.classList.toggle("on", live);
-      pill.textContent = live ? "Cloud sync: connected" : "Cloud sync: off (local only)";
+      var enabled = !!(s && s.enabled);
+      var st = s ? s.status : "off";
+      pill.classList.toggle("on", enabled && st === "live");
+      pill.classList.toggle("connecting", enabled && st === "connecting");
+      pill.classList.remove("error");
+      if (enabled && st === "live") pill.textContent = "Cloud sync: connected";
+      else if (enabled && st === "connecting") pill.textContent = "Cloud sync: connecting…";
+      else if (enabled && st === "error") { pill.classList.add("error"); pill.textContent = "Cloud sync: error"; }
+      else pill.textContent = "Cloud sync: off (local only)";
     }
     show();
+    setInterval(show, 2000);
     if (!window.CLOUD || !CLOUD.enabled) return;
     CLOUD.onChange(function (data) {
       B.applyCloud(data);

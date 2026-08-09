@@ -65,7 +65,14 @@
 
     /* Write one or more top-level slices: {uploads, customMenu, specials} */
     CLOUD.push = function (updates) {
-      try { ref.update(updates || {}); } catch (e) { CLOUD.status = "error"; CLOUD.error = e.message; }
+      try {
+        ref.update(updates || {}).then(function () {
+          CLOUD.status = "live";
+        }, function (err) {
+          CLOUD.status = "error";
+          CLOUD.error = err && err.message ? err.message : "write failed";
+        });
+      } catch (e) { CLOUD.status = "error"; CLOUD.error = e.message; }
     };
 
     /* Images are stored in the database itself (free tier — no Blaze
