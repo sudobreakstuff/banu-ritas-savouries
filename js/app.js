@@ -249,17 +249,27 @@
       if (wrap.getBoundingClientRect().top > window.innerHeight) return;
       counted = true;
       $all(".hmv[data-count]").forEach(function (el) {
-        var target = parseInt(el.dataset.count, 10);
+        var target = parseInt(el.dataset.count, 10) || 0;
         var start = null;
         (function step(ts) {
-          if (!start) start = ts;
-          var k = Math.min(1, (ts - start) / 1200);
-          el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3)));
+          var t = ts || 0;
+          if (start == null) start = t;
+          var k = Math.min(1, (t - start) / 1200);
+          el.textContent = String(Math.round(target * (1 - Math.pow(1 - k, 3))));
           if (k < 1) requestAnimationFrame(step);
-        })();
+          else el.textContent = String(target);
+        })(0);
       });
     }
+    var metricsWrap = $("#hero-metrics");
+    if (metricsWrap && "IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { if (e.isIntersecting) { run(); io.disconnect(); } });
+      }, { threshold: 0.2 });
+      io.observe(metricsWrap);
+    }
     window.addEventListener("scroll", run);
+    window.addEventListener("resize", run);
     run();
   }
   function setCount(id, n) { var el = document.getElementById(id); if (el) el.dataset.count = n; }
@@ -402,6 +412,12 @@
     $("#cart-bar").addEventListener("click", openCart);
     $("#nav-order").addEventListener("click", openCart);
     $("#hero-order").addEventListener("click", function () { window.scrollTo({ top: $("#menu").offsetTop - 80, behavior: "smooth" }); });
+
+    var plattersLink = document.querySelector('#nav-links a[href="#platters"]');
+    if (plattersLink) plattersLink.addEventListener("click", function () {
+      setFilter("platters");
+      window.scrollTo({ top: $("#menu").offsetTop - 80, behavior: "smooth" });
+    });
 
     $("#wa-checkout").addEventListener("click", function () {
       if (!cartList().length) return;
