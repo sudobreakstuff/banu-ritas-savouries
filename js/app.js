@@ -101,24 +101,27 @@
   }
 
   function cardHTML(item) {
-    var priceHTML = item.price == null
-      ? "<b>On request</b>"
-      : "<b>" + fmt(item.price) + "</b>" + (item.unit ? "<small>" + esc(item.unit) + "</small>" : "");
+    var priceHTML;
+    if (item.price == null) {
+      priceHTML = '<span class="price-chip">On request</span>';
+    } else {
+      priceHTML = '<span class="price-chip">' + fmt(item.price) + ' <small style="opacity:.75">/ ' + esc(item.unit.replace(/^per /, "")) + "</small></span>";
+    }
     return (
-      '<div class="m-card" data-id="' + esc(item.id) + '">' +
-        '<div class="m-card-top"></div>' +
-        '<div class="m-card-body">' +
-          '<div class="m-card-head">' +
-            '<span class="veg-dot ' + (item.veg ? "veg" : "nonveg") + '" title="' + (item.veg ? "Vegetarian" : "Contains meat") + '"></span>' +
-            '<h4 class="m-card-name">' + esc(item.name) + "</h4>" +
-          "</div>" +
-          '<p class="m-card-desc">' + (item.desc ? esc(item.desc) : "") + "</p>" +
-          '<div class="m-card-foot">' +
-            '<div class="m-card-price">' + priceHTML + "</div>" +
-            '<div class="m-card-ctrl" data-foot></div>' +
-          "</div>" +
+      '<article class="card' + (item.categoryId === "platters" ? " platter" : "") + '" data-id="' + esc(item.id) + '">' +
+        '<div class="card-img">' +
+          '<span class="veg-dot ' + (item.veg ? "veg" : "nonveg") + '" title="' + (item.veg ? "Vegetarian" : "Contains meat") + '"></span>' +
+          '<img src="' + esc(item._img) + '" alt="' + esc(item.name) + '" loading="lazy">' +
+          priceHTML +
         "</div>" +
-      "</div>"
+        '<div class="card-body">' +
+          '<span class="card-group">' + esc(item.group) + "</span>" +
+          '<h4 class="card-title">' + esc(item.name) + "</h4>" +
+          (item.desc ? '<p class="card-desc">' + esc(item.desc) + "</p>" : "") +
+          '<div class="card-unit">' + esc(item.unit.charAt(0).toUpperCase() + item.unit.slice(1)) + "</div>" +
+          '<div class="card-foot" data-foot></div>' +
+        "</div>" +
+      "</article>"
     );
   }
 
@@ -126,8 +129,8 @@
     var qty = cart[item.id] || 0;
     if (item.price == null) {
       footEl.innerHTML =
-        '<a class="request-link" href="' + waLink(biz.orderWhatsApp, "Hi Banu Rita, how much is the " + item.name + "?") + '" target="_blank" rel="noopener">' +
-          ICONS.wa + " Enquire" +
+        '<a class="btn btn-ghost btn-sm request-btn" href="' + waLink(biz.orderWhatsApp, "Hi Banu Rita, how much is the " + item.name + "?") + '" target="_blank" rel="noopener">' +
+          ICONS.wa + " Enquire on WhatsApp" +
         "</a>";
       return;
     }
@@ -137,9 +140,10 @@
           '<button data-action="dec" aria-label="Decrease">' + ICONS.minus + "</button>" +
           '<span class="qty">' + qty + "</span>" +
           '<button data-action="inc" aria-label="Increase">' + ICONS.plus + "</button>" +
-        "</div>";
+        "</div>" +
+        '<button class="add-btn added" data-action="inc" type="button">' + ICONS.bag + " Added</button>";
     } else {
-      footEl.innerHTML = '<button class="add-btn" data-action="inc" type="button">' + ICONS.plus + " Add</button>";
+      footEl.innerHTML = '<button class="add-btn" data-action="inc" type="button">' + ICONS.bag + " Add to order</button>";
     }
     $all("button", footEl).forEach(function (btn) {
       btn.addEventListener("click", function (e) {
@@ -152,7 +156,7 @@
   }
 
   function syncCards() {
-    $all(".m-card").forEach(function (card) {
+    $all(".card").forEach(function (card) {
       var footEl = $("[data-foot]", card);
       if (!footEl) return;
       var item = B.itemById(card.dataset.id);
@@ -165,14 +169,11 @@
     var html = "";
     B.categories.forEach(function (cat) {
       html += '<div class="menu-section" data-cat="' + esc(cat.id) + '">';
-      html += '<div class="menu-cat-head"><h3>' + esc(cat.name) + '</h3><span class="rule"></span></div>';
-      if (cat.blurb) html += '<p class="section-lead" style="margin-bottom:24px">' + esc(cat.blurb) + "</p>";
+      html += '<div class="menu-section-head"><span class="paisley small"></span><h3>' + esc(cat.name) + "</h3><span class='paisley line'></span></div>";
+      if (cat.blurb) html += '<p class="section-lead" style="margin-bottom:26px">' + esc(cat.blurb) + "</p>";
       var groups = groupItems(cat);
       Object.keys(groups).forEach(function (g) {
-        html +=
-          '<div class="m-panel"><div class="m-panel-head"><h4>' + esc(g) + "</h4></div><div class=\"m-grid\">" +
-            groups[g].map(cardHTML).join("") +
-          "</div></div>";
+        html += '<div class="menu-grid">' + groups[g].map(cardHTML).join("") + "</div>";
       });
       html += "</div>";
     });
@@ -181,8 +182,56 @@
   }
 
   /* ------------------------------------------------------------
-     HERO: counters
+     HERO: particles, marquee, counters
      ------------------------------------------------------------ */
+  function initParticles() {
+    var canvas = $("#hero-canvas");
+    if (!canvas) return;
+    var ctx = canvas.getContext("2d");
+    var W, H, dpr = 1, pts = [];
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(canvas.clientWidth * dpr);
+      canvas.height = Math.round(canvas.clientHeight * dpr);
+      W = canvas.clientWidth; H = canvas.clientHeight;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+    for (var i = 0; i < 46; i++) {
+      pts.push({
+        x: Math.random() * (W || 1200), y: Math.random() * (H || 700),
+        r: 0.6 + Math.random() * 1.8, vy: -(0.12 + Math.random() * 0.5),
+        vx: (Math.random() - 0.5) * 0.2, tw: Math.random() * Math.PI * 2
+      });
+    }
+    (function draw() {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (var i = 0; i < pts.length; i++) {
+        var p = pts[i];
+        p.y += p.vy; p.x += p.vx; p.tw += 0.03;
+        if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
+        var a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(p.tw));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, 6.283);
+        ctx.fillStyle = "rgba(246,196,111," + a + ")";
+        ctx.fill();
+      }
+      requestAnimationFrame(draw);
+    })();
+  }
+
+  function initMarquee() {
+    var track = $("#marquee");
+    if (!track) return;
+    var names = [];
+    B.categories.forEach(function (c) { c.items.forEach(function (it) { if (names.indexOf(it.name) === -1) names.push(it.name); }); });
+    var half = names.map(function (n) { return "<span>" + esc(n) + "</span><b>&#10022;</b>"; }).join("");
+    track.innerHTML = half + half;
+  }
+
   function initCounters() {
     var samFlav = ALL.filter(function (i) { return i.group === "Samoosas"; }).length;
     var platters = ALL.filter(function (i) { return i.categoryId === "platters"; }).length;
@@ -382,18 +431,6 @@
       a.addEventListener("click", function () { $("#nav-links").classList.remove("open"); });
     });
 
-    /* nav links that target a category (e.g. #platters) filter the menu + scroll */
-    $all("#nav-links a[href^='#']").forEach(function (a) {
-      a.addEventListener("click", function (e) {
-        var target = a.getAttribute("href").slice(1);
-        if (target && B.categories.some(function (c) { return c.id === target; })) {
-          e.preventDefault();
-          setFilter(target);
-          window.scrollTo({ top: $("#menu").offsetTop - 70, behavior: "smooth" });
-        }
-      });
-    });
-
     /* scroll nav + active link */
     var sections = ["menu", "how", "story", "visit"];
     window.addEventListener("scroll", function () {
@@ -447,6 +484,8 @@
     renderMenu();
     setFilter(activeFilter);
     renderCart();
+    initParticles();
+    initMarquee();
     initCounters();
     initEvents();
     fillContact();
