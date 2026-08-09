@@ -236,15 +236,32 @@
     if (!list.length) { root.innerHTML = ""; return; }
     root.innerHTML = list.map(function (ad) {
       return (
-        '<article class="special-card">' +
+        '<button class="special-card" type="button" data-zoom="' + esc(ad.img) + '" aria-label="Enlarge ' + esc(ad.title) + '">' +
           '<img src="' + esc(ad.img) + '" alt="' + esc(ad.title) + '" loading="lazy">' +
-          '<div class="special-overlay">' +
+          '<div class="special-meta">' +
             "<h3>" + esc(ad.title) + "</h3>" +
             (ad.caption ? "<p>" + esc(ad.caption) + "</p>" : "") +
           "</div>" +
-        "</article>"
+        "</button>"
       );
     }).join("");
+    $all(".special-card", root).forEach(function (card) {
+      card.addEventListener("click", function () { openLightbox(card.dataset.zoom); });
+    });
+  }
+
+  function openLightbox(src) {
+    var img = $("#lightbox-img");
+    if (!img) return;
+    img.src = src;
+    $("#lightbox").classList.add("on");
+    document.body.style.overflow = "hidden";
+  }
+  function closeLightbox() {
+    var lb = $("#lightbox");
+    if (!lb) return;
+    lb.classList.remove("on");
+    document.body.style.overflow = "";
   }
 
   /* ------------------------------------------------------------
@@ -282,7 +299,7 @@
         var a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(p.tw));
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, 6.283);
-        ctx.fillStyle = "rgba(217,184,119," + a + ")";
+        ctx.fillStyle = "rgba(240,236,226," + a + ")";
         ctx.fill();
       }
       requestAnimationFrame(draw);
@@ -550,6 +567,14 @@
     $all("#nav-links a").forEach(function (a) {
       a.addEventListener("click", function () { $("#nav-links").classList.remove("open"); });
     });
+
+    var lb = $("#lightbox");
+    if (lb) {
+      lb.addEventListener("click", closeLightbox);
+      var lbClose = $("#lightbox-close");
+      if (lbClose) lbClose.addEventListener("click", function (e) { e.stopPropagation(); closeLightbox(); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeLightbox(); });
+    }
 
     /* scroll nav + active link */
     var sections = ["specials", "menu", "how", "story", "visit"];

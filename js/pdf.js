@@ -37,22 +37,28 @@
     doc.setFillColor(RED[0], RED[1], RED[2]);
     doc.rect(0, 30, W, 2.4, "F");
 
+    /* monogram logo — red disc with white "B" (brand mark) */
     doc.setFillColor(RED[0], RED[1], RED[2]);
-    doc.circle(14, 15, 7, "F");
-    doc.setFillColor(255, 255, 255);
-    doc.circle(14, 15, 5.4, "F");
+    doc.circle(14, 15, 7.5, "F");
+    doc.setFillColor(GOLD[0], GOLD[1], GOLD[2]);
+    doc.circle(14, 15, 6.2, "F");
     doc.setFillColor(RED[0], RED[1], RED[2]);
-    doc.circle(14, 15, 2.6, "F");
+    doc.circle(14, 15, 5.1, "F");
+    doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text("BANU", 14, 12.4, { align: "center" });
+    doc.text("RITA'S", 14, 16.6, { align: "center" });
 
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
-    doc.text(biz.name, 24, 14.5);
+    doc.text(biz.name, 26, 14.5);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
-    doc.text(biz.addressShort, 24, 20);
-    doc.text(biz.phone + "  |  " + biz.phone2, 24, 25);
+    doc.text(biz.addressShort, 26, 20);
+    doc.text(biz.phone + "  |  " + biz.phone2, 26, 25);
 
     /* doc type + number, right side */
     doc.setTextColor(255, 255, 255);
@@ -99,22 +105,23 @@
   function drawItems(doc, y, items, opts) {
     opts = opts || {};
     var W = 210, M = 16;
-    var colX = [M, M + 14, M + 70, M + 120, W - M - 28];
-    var widths = [14, 56, 50, 28, 28];
+    var colQty = M, colItem = M + 16, colUnitR = M + 118, colPriceR = M + 150, colAmtR = W - M;
+    var nameW = colUnitR - colItem - 6;
 
     /* header row */
-    doc.setFillColor(CREAM[0], CREAM[1], CREAM[2]);
+    doc.setFillColor(MARIGOLD[0], MARIGOLD[1], MARIGOLD[2]);
     roundRect(doc, M, y, W - M * 2, 9, 2.5);
     doc.fill();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    ["Qty", "Item", "Unit", "Price", "Amount"].forEach(function (h, i) {
-      doc.text(h, colX[i], y + 6, i >= 2 ? { align: "right" } : undefined);
-    });
+    doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
+    doc.text("QTY", colQty, y + 6);
+    doc.text("ITEM", colItem, y + 6);
+    doc.text("UNIT", colUnitR, y + 6, { align: "right" });
+    doc.text("PRICE", colPriceR, y + 6, { align: "right" });
+    doc.text("AMOUNT", colAmtR, y + 6, { align: "right" });
 
     y += 11;
-    var rowH = 7.5;
     doc.setFont("helvetica", "normal");
     items.forEach(function (it, idx) {
       var name = it.name || it.desc || "Item";
@@ -123,24 +130,25 @@
       var qty = it.qty || 1;
       var amount = price != null ? price * qty : null;
 
+      var nameLines = doc.splitTextToSize(name, nameW);
+      var rowH = Math.max(7.5, nameLines.length * 4.6 + 2.6);
+
       if (idx % 2 === 1) {
-        doc.setFillColor(CREAM[0], CREAM[1], CREAM[2]);
-        doc.setGState(new window.jspdf.GState({ opacity: 0.4 }));
-        roundRect(doc, M, y - 3.6, W - M * 2, rowH, 1.5);
+        doc.setFillColor(243, 243, 243);
+        roundRect(doc, M, y - 3.4, W - M * 2, rowH, 1.5);
         doc.fill();
-        doc.setGState(new window.jspdf.GState({ opacity: 1 }));
       }
 
       doc.setFontSize(8.5);
       doc.setTextColor(INK[0], INK[1], INK[2]);
-      doc.text(String(qty), colX[0], y);
-      doc.text(name, colX[1], y);
-      doc.text(desc, colX[2], y, { align: "right" });
-      doc.text(price != null ? fmtMoney(price) : "—", colX[3], y, { align: "right" });
-      doc.text(amount != null ? fmtMoney(amount) : "—", colX[4], y, { align: "right" });
-      y += rowH;
+      doc.text(String(qty), colQty, y + 1);
+      doc.text(nameLines, colItem, y + 1);
+      doc.text(desc, colUnitR, y + 1, { align: "right" });
+      doc.text(price != null ? fmtMoney(price) : "—", colPriceR, y + 1, { align: "right" });
+      doc.text(amount != null ? fmtMoney(amount) : "—", colAmtR, y + 1, { align: "right" });
+      y += rowH + 1.6;
     });
-    return y + 4;
+    return y + 2;
   }
 
   function drawTotals(doc, y, total, opts) {
@@ -166,6 +174,10 @@
     doc.setDrawColor(RED[0], RED[1], RED[2]);
     doc.setLineWidth(0.4);
     doc.line(x, y - 2, x + col, y - 2);
+    /* highlight the grand total */
+    doc.setFillColor(249, 236, 235);
+    doc.roundedRect(x - 6, y - 4.2, col + 6, 8.8, 2.5, 2.5);
+    doc.fill();
     y = row("TOTAL " + (opts.title || "").toUpperCase(), fmtMoney(total), true);
     return y;
   }
@@ -174,8 +186,9 @@
     notes = (notes || []).filter(Boolean);
     if (!notes.length) return y;
     y += 4;
-    doc.setFillColor(CREAM[0], CREAM[1], CREAM[2]);
-    roundRect(doc, 16, y, 178, 20, 3);
+    var h = 13 + notes.length * 4.4;
+    doc.setFillColor(243, 243, 243);
+    roundRect(doc, 16, y, 178, h, 3);
     doc.fill();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
@@ -186,10 +199,10 @@
     doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
     var i = 1;
     notes.forEach(function (n) {
-      doc.text("\u2022 " + n, 22, y + 6 + i * 4, { maxWidth: 165 });
+      doc.text("\u2022 " + n, 22, y + 6 + i * 4.4, { maxWidth: 165 });
       i++;
     });
-    return y + 28;
+    return y + h + 6;
   }
 
   /* ------------------------------------------------------------
