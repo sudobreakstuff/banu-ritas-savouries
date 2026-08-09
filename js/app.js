@@ -97,6 +97,7 @@
      RENDER: MENU
      ------------------------------------------------------------ */
   var activeFilter = "all";
+  var menuQuery = "";
 
   function buildFilterBar() {
     var bar = $("#filter-bar");
@@ -107,7 +108,10 @@
     });
     bar.innerHTML = html;
     $all(".filter-pill", bar).forEach(function (pill) {
-      pill.addEventListener("click", function () { setFilter(pill.dataset.filter); });
+      pill.addEventListener("click", function () {
+        if (menuQuery) { clearSearch(); renderMenu(); }
+        setFilter(pill.dataset.filter);
+      });
     });
   }
 
@@ -223,6 +227,55 @@
     }
     root.innerHTML = html;
     syncCards();
+  }
+
+  /* ------------------------------------------------------------
+     SEARCH — filter the whole menu by name / group / category / notes
+     ------------------------------------------------------------ */
+  function matchesQuery(item, tokens) {
+    var hay = [item.name, item.group, item.category, item.desc || "", item.unit].join(" ").toLowerCase();
+    return tokens.every(function (t) { return hay.indexOf(t) !== -1; });
+  }
+
+  function applySearch(q) {
+    q = (q || "").trim();
+    if (q === menuQuery) return;
+    menuQuery = q;
+    var root = $("#menu-root");
+    if (!root) return;
+    if (!q) { renderMenu(); setFilter(activeFilter); return; }
+
+    var tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+    var matched = B.allItems().filter(function (it) { return matchesQuery(it, tokens); });
+    var html = "";
+    if (matched.length) {
+      html += '<div class="search-head"><b>' + matched.length + "</b> " + (matched.length === 1 ? "result for" : "results for") + ' “' + esc(q) + "”</div>";
+      var byCat = {};
+      matched.forEach(function (it) { (byCat[it.categoryId] = byCat[it.categoryId] || []).push(it); });
+      Object.keys(byCat).forEach(function (catId) {
+        var cat = B.categoryById(catId);
+        var catName = cat ? cat.name : "Custom items";
+        html += '<div class="menu-section show" data-cat="' + esc(catId) + '">';
+        html += '<div class="menu-section-head"><span class="paisley small"></span><h3>' + esc(catName) + "</h3><span class='paisley line'></span></div>";
+        var byGroup = {};
+        byCat[catId].forEach(function (it) { (byGroup[it.group] = byGroup[it.group] || []).push(it); });
+        Object.keys(byGroup).forEach(function (g) {
+          html += '<div class="group-head">' + esc(g) + "</div>";
+          html += '<div class="menu-grid">' + byGroup[g].map(cardHTML).join("") + "</div>";
+        });
+        html += "</div>";
+      });
+    } else {
+      html = '<div class="search-head">No items match “' + esc(q) + '”</div>';
+    }
+    root.innerHTML = html;
+    syncCards();
+  }
+
+  function clearSearch() {
+    var box = $("#search-input");
+    if (box) box.value = "";
+    menuQuery = "";
   }
 
   /* ------------------------------------------------------------
@@ -576,6 +629,27 @@
       document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeLightbox(); });
     }
 
+    /* search */
+    var searchBox = $("#search-input");
+    if (searchBox) {
+      searchBox.addEventListener("input", function () { applySearch(searchBox.value); });
+      var searchClear = $("#search-clear");
+      if (searchClear) {
+        searchClear.addEventListener("click", function () {
+          clearSearch();
+          renderMenu();
+          setFilter(activeFilter);
+          searchBox.focus();
+        });
+      }
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "")) {
+        e.preventDefault();
+        if (searchBox) searchBox.focus();
+      }
+    });
+
     /* scroll nav + active link */
     var sections = ["specials", "menu", "how", "story", "visit"];
     window.addEventListener("scroll", function () {
@@ -641,8 +715,8 @@
         if (typeof B.applyCloud === "function") B.applyCloud(data);
         renderSpecials();
         buildFilterBar();
-        renderMenu();
-        setFilter(activeFilter);
+        if (menuQuery) { applySearch($("#search-input") ? $("#search-input").value : ""); }
+        else { renderMenu(); setFilter(activeFilter); }
       });
     }
     /* deep-link to a category (e.g. #platters) */
