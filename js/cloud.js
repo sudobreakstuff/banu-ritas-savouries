@@ -41,7 +41,15 @@
     CLOUD.enabled = true;
     CLOUD.status = "connecting";
 
+    var connectTimer = setTimeout(function () {
+      if (CLOUD.status === "connecting") {
+        CLOUD.status = "error";
+        CLOUD.error = "couldn't reach the Realtime Database — check databaseURL in js/firebase-config.js";
+      }
+    }, 15000);
+
     ref.on("value", function (snap) {
+      clearTimeout(connectTimer);
       CLOUD.status = "live";
       var v = snap.val();
       if (v && typeof v === "object") {
