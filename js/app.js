@@ -216,7 +216,7 @@
         var a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(p.tw));
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, 6.283);
-        ctx.fillStyle = "rgba(246,196,111," + a + ")";
+        ctx.fillStyle = "rgba(217,184,119," + a + ")";
         ctx.fill();
       }
       requestAnimationFrame(draw);
@@ -293,6 +293,7 @@
     $all(".cart-count").forEach(function (el) { el.textContent = count; el.classList.toggle("on", count > 0); });
     $("#cart-bar-total").textContent = fmt(cartTotal());
     $("#cart-bar").classList.toggle("show", count > 0);
+    document.body.classList.toggle("has-cart-bar", count > 0);
     $("#cart-total").textContent = fmt(cartTotal());
 
     if (!list.length) {
